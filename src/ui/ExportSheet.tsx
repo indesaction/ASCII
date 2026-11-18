@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { studio } from '../app/studio'
 import { cmykLabel, hexToRgb, rgbToCmyk, rgbToHex, type CmykOptions } from '../engine/color'
 import { cellMetrics } from '../engine/convert'
@@ -9,6 +9,7 @@ import { canvasToBlob, isIOS, maxCanvasArea, renderStillCanvas } from '../export
 import { videoFormat } from '../export/videoFormat'
 import { useApp } from '../state/store'
 import { Hint, Section, Segmented, Select, Slider, Toggle } from './controls'
+import { Button, IconButton } from './ds'
 import { I } from './icons'
 
 type Fmt = 'png' | 'svg' | 'pdf' | 'gif' | 'video' | 'embed' | 'txt' | 'html' | 'ansi' | 'project'
@@ -24,6 +25,13 @@ const FORMATS: { id: Fmt; name: string; tag: string; desc: string }[] = [
   { id: 'html', name: 'HTML', tag: 'Color', desc: 'Colored <pre> page' },
   { id: 'ansi', name: 'ANSI', tag: 'Terminal', desc: '24-bit color escape codes for terminals' },
   { id: 'project', name: 'Project', tag: '.json', desc: 'Every layer, setting and glyph — reopen later' },
+]
+
+const GROUPS: { name: string; ids: Fmt[] }[] = [
+  { name: 'Still', ids: ['png', 'svg', 'pdf'] },
+  { name: 'Motion', ids: ['gif', 'video', 'embed'] },
+  { name: 'Text', ids: ['txt', 'html', 'ansi'] },
+  { name: 'Archive', ids: ['project'] },
 ]
 
 const COPYABLE: Fmt[] = ['png', 'txt', 'html', 'ansi', 'svg']
@@ -222,17 +230,23 @@ export function ExportSheet() {
           <h2>
             Export <em>the piece</em>
           </h2>
-          <button type="button" className="icon-btn" onClick={() => setUi({ exportOpen: false })} aria-label="Close">
-            <I.Close />
-          </button>
+          <IconButton label="Close" icon={<I.Close />} onClick={() => setUi({ exportOpen: false })} />
         </header>
         <div className="sheet-body">
-          <nav className="fmt-list">
-            {FORMATS.map((f) => (
-              <button key={f.id} type="button" className={`fmt ${fmt === f.id ? 'on' : ''}`} onClick={() => setFmt(f.id)}>
-                <span className="fmt-name">{f.name}</span>
-                <span className="fmt-tag">{f.tag}</span>
-              </button>
+          <nav className="fmt-list" aria-label="Formats">
+            {GROUPS.map((g) => (
+              <Fragment key={g.name}>
+                <span className="fmt-group t-label">{g.name}</span>
+                {g.ids.map((id) => {
+                  const f = FORMATS.find((x) => x.id === id)!
+                  return (
+                    <button key={f.id} type="button" className={`fmt ${fmt === f.id ? 'is-on' : ''}`} aria-pressed={fmt === f.id} onClick={() => setFmt(f.id)}>
+                      <span className="fmt-name">{f.name}</span>
+                      <span className="fmt-tag">{f.tag}</span>
+                    </button>
+                  )
+                })}
+              </Fragment>
             ))}
           </nav>
           <div className="fmt-options">
@@ -390,26 +404,26 @@ export function ExportSheet() {
               </Section>
             )}
 
-            <div className="fmt-info mono-dim">{info[fmt]}</div>
+            <div className="fmt-info t-meta">{info[fmt]}</div>
             <div className="sheet-actions">
               {COPYABLE.includes(fmt) && (
-                <button type="button" className="btn" onClick={() => void run('copy')}>
-                  <I.Copy /> Copy
-                </button>
+                <Button variant="ghost" icon={<I.Copy />} onClick={() => void run('copy')}>
+                  Copy
+                </Button>
               )}
               {canShare && ['png', 'gif', 'video', 'pdf', 'svg'].includes(fmt) && (
-                <button type="button" className="btn" onClick={() => void run('share')}>
-                  <I.Share /> Share
-                </button>
+                <Button variant="secondary" icon={<I.Share />} onClick={() => void run('share')}>
+                  Share
+                </Button>
               )}
-              <button
-                type="button"
-                className="btn primary"
+              <Button
+                variant="primary"
+                icon={<I.Download />}
                 disabled={(fmt === 'gif' && !animated) || (fmt === 'video' && (!vf || (!animated && !live)))}
                 onClick={() => void run('download')}
               >
-                <I.Download /> Download
-              </button>
+                Download {FORMATS.find((f) => f.id === fmt)?.name}
+              </Button>
             </div>
           </div>
         </div>

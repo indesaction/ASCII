@@ -1,0 +1,306 @@
+/* ------------------------------------------------------------------ stage */
+
+.stage {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background-color: var(--color-stage);
+  background-image: radial-gradient(var(--color-dot) 1px, transparent 1.3px);
+  background-size: 20px 20px;
+}
+
+.stage-scroll {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  scrollbar-width: thin;
+}
+
+.stage-inner {
+  display: grid;
+  place-items: center;
+  width: max-content;
+  min-width: 100%;
+  min-height: 100%;
+  padding: var(--space-10) var(--space-12);
+}
+
+.is-empty .stage {
+  background-image: none;
+  background-color: var(--color-paper);
+}
+
+.is-empty .stage-inner {
+  grid-template-columns: minmax(0, 1fr);
+  width: 100%;
+  padding: var(--space-8) var(--space-10);
+}
+
+.art {
+  margin: 0;
+  animation: fade-in var(--dur-3) var(--ease-out);
+}
+
+.art-frame {
+  position: relative;
+  line-height: 0;
+  background: repeating-conic-gradient(var(--color-check) 0% 25%, transparent 0% 50%) 50% / 16px 16px;
+  box-shadow: var(--shadow-art);
+}
+
+.tool-brush .art-frame,
+.tool-eraser .art-frame {
+  cursor: none;
+}
+
+.tool-glyph .art-frame,
+.tool-pick .art-frame {
+  cursor: crosshair;
+}
+
+.tool-text .art-frame {
+  cursor: text;
+}
+
+.tool-move .art-frame {
+  cursor: move;
+}
+
+.tool-hand .art-frame {
+  cursor: grab;
+}
+
+.tool-interact .art-frame {
+  cursor: pointer;
+}
+
+.art-canvas {
+  display: block;
+  width: 0;
+  height: 0;
+}
+
+.type-sink {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  /* 16px: below this iOS zooms the page when the field takes focus. */
+  font-size: 16px;
+  resize: none;
+  pointer-events: none;
+}
+
+/* ------------------------------------------------------------------ compare */
+
+.compare {
+  position: absolute;
+  pointer-events: none;
+}
+
+.compare canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.compare-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--color-accent);
+  cursor: ew-resize;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.compare-handle::before {
+  content: '';
+  position: absolute;
+  inset: 0 -16px;
+}
+
+.compare-handle span {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  box-shadow: 0 6px 16px -6px rgba(0, 0, 0, 0.5);
+  transform: translate(-50%, -50%);
+}
+
+.compare-handle i {
+  position: absolute;
+  top: 50%;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--color-accent);
+  color: var(--color-accent-ink);
+  font: normal 500 var(--text-2xs) / 1 var(--font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transform: translateY(-50%);
+}
+
+.compare-handle i:first-child {
+  right: calc(100% + 6px);
+}
+
+.compare-handle i:last-child {
+  left: calc(100% + 6px);
+}
+
+/* ------------------------------------------------------------------ selection, cursors, lens */
+
+.selection {
+  position: absolute;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.selection polygon,
+.selection line {
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.selection .handle {
+  fill: var(--color-surface);
+  stroke: var(--color-accent);
+  stroke-width: 2;
+  cursor: nwse-resize;
+  pointer-events: all;
+  touch-action: none;
+}
+
+.selection .handle.rotate {
+  fill: var(--color-accent);
+  cursor: grab;
+}
+
+.brush-cursor {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 4;
+  display: none;
+  border: 1.5px solid var(--color-ink);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--color-paper);
+  pointer-events: none;
+}
+
+.tool-eraser .brush-cursor {
+  border-style: dashed;
+}
+
+.lens-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* ------------------------------------------------------------------ glyph picker */
+
+.glyph-current {
+  width: var(--control-md);
+  height: var(--control-md);
+  border: var(--stroke) solid var(--color-ink);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  font: var(--text-lg) / 1 var(--font-mono);
+  cursor: pointer;
+}
+
+.glyph-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(30px, 1fr));
+  gap: 3px;
+  max-height: 176px;
+  overflow: auto;
+}
+
+.glyph-grid button {
+  height: 30px;
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  font: var(--text-lg) / 1 var(--font-mono);
+  cursor: pointer;
+}
+
+.glyph-grid button:hover {
+  background: var(--color-sunken);
+}
+
+.glyph-grid button.is-on {
+  background: var(--color-ink);
+  color: var(--color-paper);
+}
+
+.popover.glyph-popover {
+  width: 288px;
+  padding: var(--space-3);
+}
+
+/* ------------------------------------------------------------------ drop */
+
+.drop-overlay {
+  position: fixed;
+  inset: var(--space-3);
+  z-index: var(--z-toast);
+  display: grid;
+  place-items: center;
+  border: 1.5px dashed var(--color-accent);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-paper) 84%, transparent);
+  text-align: center;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  pointer-events: none;
+  animation: fade-in var(--dur-1);
+}
+
+.drop-overlay svg {
+  color: var(--color-accent);
+}
+
+.drop-overlay p {
+  margin: var(--space-3) 0 0;
+  font: 400 var(--text-2xl) / 1 var(--font-display);
+}
+
+@media (max-width: 860px) {
+  .stage-inner {
+    padding: 64px var(--space-2) 112px;
+  }
+
+  .app:not(.sheet-0) .stage-inner {
+    padding-bottom: 72px;
+  }
+
+  .is-empty .stage-inner {
+    padding: var(--space-6) var(--space-4) var(--space-10);
+  }
+
+  .popover.glyph-popover {
+    right: var(--space-2) !important;
+    left: var(--space-2) !important;
+    width: auto;
+  }
+}

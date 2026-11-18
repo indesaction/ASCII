@@ -57,8 +57,9 @@ Ink-density calibration, shape matching, dithering (Floyd–Steinberg, Atkinson,
 tone controls, and "ink from transparency" for logos and cut-outs.
 
 ### Style
-11 one-click looks (including **Passion**), mono / original / gradient / palette color,
-palette extraction from the board, cell tint, typography and a CMYK soft proof.
+11 one-click looks (including **Passion**), each **previewed live on your own board**
+before you pick it. Mono / original / gradient / palette color, palette extraction
+from the board, cell tint, typography and a CMYK soft proof.
 
 ### Motion
 **17 seamless-loop animations:** Decode · Rain · Wave · Glitch · Assemble · Ripple · Holo ·
@@ -101,11 +102,26 @@ npm run lint       # oxlint
 
 Requires Node 20+.
 
+### Workspace
+- **Desktop**: layers on the left, a tool rail beside the canvas, the current tool's
+  options above it, cells / glyphs / fps and zoom below it, and the inspector
+  (Layer · Shape · Style · Motion) on the right. Secondary settings fold away.
+- **⌘K / Ctrl K** opens a command palette with every action, tool, look, motion,
+  interaction, panel and appearance option, fuzzy-searchable from the keyboard.
+- **Appearance** (palette icon): Paper or Night, and five accent colors.
+- The welcome screen's plate is the real engine at work: a rose set in pink glyphs
+  that shimmer and move away from your pointer.
+
+### Design system
+Tokens, components and patterns are documented in
+[`docs/DESIGN_SYSTEM.md`](docs/DESIGN_SYSTEM.md) and shown as a living style
+guide inside the app at **`#design-system`**.
+
 ### Mobile
 The app is a **PWA**: open it on a phone and choose *Add to Home Screen*. It then
 runs full-screen and works offline. The layout switches to a bottom tab bar with a
 draggable control sheet (drag its handle, or tap the active tab to hide it), and the
-tools sit on a bar over the art. Touch drawing
+tools sit on a dock over the art (Pick and Pan are in the ⌘K search). Touch drawing
 works in the editor, and on iOS and Android exports can go straight to the
 system share sheet.
 
@@ -128,7 +144,9 @@ src/
               history, recorder, glyph layer, fonts
   export/     PNG, SVG, PDF writer, GIF/video, text formats, web embed, projects
   player/     standalone player inlined into web-embed exports
-  ui/         React components (panels, stage, export sheet)
+  styles/     design system: tokens → base → components → layout → surfaces
+  ui/         React components: primitives (ds, controls), workspace chrome,
+              panels, stage, welcome, export, command palette, style guide
   state/      zustand store (settings persist to localStorage)
 ```
 

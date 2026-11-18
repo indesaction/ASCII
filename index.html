@@ -8,7 +8,7 @@
       name="description"
       content="Layer photos, video, PDFs, vectors and drawings on one board and turn them into living ASCII art. Touch it, animate it, record it, and export PNG, SVG, CMYK PDF, GIF, video or a web embed."
     />
-    <meta name="theme-color" content="#f3f0ea" />
+    <meta name="theme-color" content="#f4f1eb" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Atelier" />
@@ -24,7 +24,7 @@
         var host = document.documentElement.getAttribute('data-theme')
         var t = (s.ui && s.ui.theme) || host || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
         document.documentElement.dataset.theme = t
-        if (s.ui && s.ui.accent) document.documentElement.style.setProperty('--accent', s.ui.accent)
+        if (s.ui && s.ui.accent) document.documentElement.style.setProperty('--color-accent', s.ui.accent)
       } catch (e) {}
     </script>
   </head>

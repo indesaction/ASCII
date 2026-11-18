@@ -5,6 +5,7 @@ import { history } from './history'
 import { decodeEps, decodeGif, decodePsd, decodeTiff, openPdf, parseAsciiText } from './importers'
 import { disposeRuntime, makeCanvas, runtimes, type LayerRuntime } from './runtime'
 import { studio } from './studio'
+import { LOOKS } from '../engine/presets'
 
 const MAX_SIDE = 2048
 
@@ -511,7 +512,6 @@ export const SAMPLES: Sample[] = [
       addCanvasLayer(await svgToCanvas(roseSvg()), 'Rose')
       // On an empty board the rose arrives dressed in the Passion look.
       if (first) {
-        const { LOOKS } = await import('../engine/presets')
         const look = LOOKS.find((l) => l.id === 'passion')!
         const s = useApp.getState()
         s.setShape(look.shape!)

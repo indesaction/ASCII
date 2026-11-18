@@ -36,6 +36,8 @@ export class Studio {
   /** Flattened layers at sampling resolution. */
   readonly composite = makeCanvas(4, 4)
   compositeScale = 1
+  /** Bumped every time the composite is redrawn (look previews key off it). */
+  compositeVersion = 0
   private list = new RenderList()
   animTime = 0
   private lastNow = 0
@@ -218,6 +220,7 @@ export class Studio {
       this.drawLayer(ctx, l, rt, ink)
     }
     ctx.setTransform(1, 0, 0, 1, 0, 0)
+    this.compositeVersion++
     this.needConvert = true
   }
 

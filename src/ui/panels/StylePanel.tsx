@@ -1,30 +1,91 @@
-import { useState } from 'react'
-import { getAnimation } from '../../anim/animations'
+import { useEffect, useRef, useState } from 'react'
+import { applyLook } from '../../app/looks'
 import { studio } from '../../app/studio'
 import { extractPalette, rgbToHex } from '../../engine/color'
 import { resolvePalette, thumbnailPixels } from '../../engine/convert'
 import { GRADIENTS, LOOKS, PALETTES } from '../../engine/presets'
 import { useApp } from '../../state/store'
 import { ColorField, Section, Segmented, Slider, Toggle } from '../controls'
+import { Button, IconButton } from '../ds'
 import { I } from '../icons'
+import { buildMini, paintMini } from '../mini'
+
+/** Every look, rendered from the current board — so you choose by seeing, not guessing. */
+function LookGrid({ onApply }: { onApply: (id: string) => void }) {
+  const hasBoard = useApp((s) => !!s.board)
+  const [applied, setApplied] = useState<string | null>(null)
+  const canvases = useRef(new Map<string, HTMLCanvasElement>())
+  useEffect(() => {
+    if (!hasBoard) return
+    let last = -1
+    let alive = true
+    const run = async () => {
+      const v = studio.compositeVersion
+      if (v === last || studio.composite.width < 8) return
+      last = v
+      const s = useApp.getState()
+      const c = studio.composite
+      const src = { el: c, width: c.width, height: c.height, mask: s.shape.alphaInk }
+      for (const look of LOOKS) {
+        const canvas = canvases.current.get(look.id)
+        if (!alive) return
+        if (!canvas) continue
+        const shape = { ...s.shape, ...look.shape, columns: 34 }
+        const style = { ...s.style, cellTint: 0, ...look.style, fontSize: 6, lineHeight: 1, letterSpacing: 0, padding: 1, transparent: false, proof: false }
+        try {
+          paintMini(canvas, buildMini(src, shape, style, 2))
+        } catch {
+          /* a preview is optional */
+        }
+        // Yield between looks so typing and drawing stay smooth.
+        await new Promise((r) => setTimeout(r, 0))
+      }
+    }
+    void run()
+    const t = setInterval(() => void run(), 900)
+    return () => {
+      alive = false
+      clearInterval(t)
+    }
+  }, [hasBoard])
+  return (
+    <div className="look-grid">
+      {LOOKS.map((l) => (
+        <button
+          key={l.id}
+          type="button"
+          className={`look ${applied === l.id ? 'is-on' : ''}`}
+          aria-pressed={applied === l.id}
+          onClick={() => {
+            setApplied(l.id)
+            onApply(l.id)
+          }}
+        >
+          <span className="look-preview" style={{ background: l.swatch[0], color: l.swatch[1] }}>
+            {hasBoard ? (
+              <canvas
+                ref={(el) => {
+                  if (el) canvases.current.set(l.id, el)
+                  else canvases.current.delete(l.id)
+                }}
+                aria-hidden="true"
+              />
+            ) : (
+              'Aa'
+            )}
+          </span>
+          <span className="look-name">{l.name}</span>
+        </button>
+      ))}
+    </div>
+  )
+}
 
 export function StylePanel() {
   const style = useApp((s) => s.style)
   const set = useApp((s) => s.setStyle)
   const hasSource = useApp((s) => s.layers.length > 0)
   const [k, setK] = useState(5)
-
-  const applyLook = (id: string) => {
-    const look = LOOKS.find((l) => l.id === id)
-    if (!look) return
-    const s = useApp.getState()
-    if (look.shape) s.setShape(look.shape)
-    if (look.style) s.setStyle({ cellTint: 0, ...look.style })
-    if (look.motion) {
-      const anim = look.motion.animation
-      s.setMotion({ ...look.motion, ...(anim ? { duration: getAnimation(anim).duration, playing: true } : {}) })
-    }
-  }
 
   const extract = (target: 'palette' | 'gradient') => {
     const c = studio.composite
@@ -40,17 +101,8 @@ export function StylePanel() {
 
   return (
     <>
-      <Section title="Looks">
-        <div className="look-grid">
-          {LOOKS.map((l) => (
-            <button key={l.id} type="button" className="look" onClick={() => applyLook(l.id)}>
-              <span className="look-swatch" style={{ background: l.swatch[0], color: l.swatch[1] }}>
-                Aa
-              </span>
-              <span>{l.name}</span>
-            </button>
-          ))}
-        </div>
+      <Section title="Looks" aside={<span className="t-meta">Previewed on your board</span>}>
+        <LookGrid onApply={applyLook} />
       </Section>
 
       <Section title="Color">
@@ -93,14 +145,10 @@ export function StylePanel() {
                 />
               ))}
               {style.gradient.length < 5 && (
-                <button type="button" className="icon-btn" title="Add stop" onClick={() => set({ gradient: [...style.gradient, style.gradient[style.gradient.length - 1]] })}>
-                  <I.Plus />
-                </button>
+                <IconButton label="Add stop" icon={<I.Plus />} onClick={() => set({ gradient: [...style.gradient, style.gradient[style.gradient.length - 1]] })} />
               )}
               {style.gradient.length > 2 && (
-                <button type="button" className="icon-btn" title="Remove stop" onClick={() => set({ gradient: style.gradient.slice(0, -1) })}>
-                  <I.Minus />
-                </button>
+                <IconButton label="Remove stop" icon={<I.Minus />} onClick={() => set({ gradient: style.gradient.slice(0, -1) })} />
               )}
             </div>
             <div className="chips">
@@ -134,7 +182,7 @@ export function StylePanel() {
                 <button
                   key={p.id}
                   type="button"
-                  className={`chip swatchy ${style.paletteId === p.id ? 'on' : ''}`}
+                  className={`chip swatchy ${style.paletteId === p.id ? 'is-on' : ''}`}
                   onClick={() => set({ paletteId: p.id })}
                 >
                   <i style={{ background: `linear-gradient(90deg, ${(p.id === 'custom' ? style.customPalette : p.colors).join(', ')})` }} />
@@ -154,12 +202,12 @@ export function StylePanel() {
           <div className="extract">
             <Slider label="Extract colors from image" value={k} min={2} max={8} step={1} onChange={setK} format={(v) => `${v} colors`} />
             <div className="row">
-              <button type="button" className="btn" onClick={() => extract('palette')}>
-                <I.Sparkle /> As palette
-              </button>
-              <button type="button" className="btn" onClick={() => extract('gradient')}>
-                <I.Sparkle /> As gradient
-              </button>
+              <Button size="sm" icon={<I.Sparkle size={14} />} onClick={() => extract('palette')}>
+                As palette
+              </Button>
+              <Button size="sm" icon={<I.Sparkle size={14} />} onClick={() => extract('gradient')}>
+                As gradient
+              </Button>
             </div>
           </div>
         )}
@@ -175,7 +223,7 @@ export function StylePanel() {
         />
       </Section>
 
-      <Section title="Typography">
+      <Section title="Typography" collapsible defaultOpen={false}>
         <Slider label="Size" value={style.fontSize} min={5} max={32} step={0.5} onChange={(fontSize) => set({ fontSize })} format={(v) => `${v}px`} />
         <Slider label="Line height" value={style.lineHeight} min={0.6} max={1.8} onChange={(lineHeight) => set({ lineHeight })} format={(v) => v.toFixed(2)} />
         <Slider label="Tracking" value={style.letterSpacing} min={-2} max={8} step={0.1} onChange={(letterSpacing) => set({ letterSpacing })} format={(v) => `${v.toFixed(1)}px`} />
@@ -192,7 +240,7 @@ export function StylePanel() {
         />
       </Section>
 
-      <Section title="Print">
+      <Section title="Print" collapsible defaultOpen={false}>
         <Toggle
           label="CMYK soft proof"
           hint="Simulates process inks on paper so you can spot colors that will print dull"

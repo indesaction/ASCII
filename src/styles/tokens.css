@@ -1,0 +1,140 @@
+/*
+ * Atelier design tokens — the only place raw values live.
+ * Components reference roles (surface, ink, line, accent), never hex codes.
+ * See docs/DESIGN_SYSTEM.md for usage rules.
+ */
+
+:root {
+  color-scheme: light;
+
+  /* --- color: neutrals (warm paper, slight red bias toward the accent) --- */
+  --color-paper: #f4f1eb; /* app chrome */
+  --color-surface: #faf8f4; /* raised: cards, inputs, popovers */
+  --color-sunken: #ebe7df; /* tracks, wells */
+  --color-stage: #e7e2d9; /* around the artwork */
+  --color-ink: #161514; /* primary text, icons */
+  --color-ink-2: #48443e; /* secondary text */
+  --color-ink-3: #6b665e; /* tertiary text, hints (4.9:1 on paper) */
+  --color-line: rgba(22, 21, 20, 0.09);
+  --color-line-strong: rgba(22, 21, 20, 0.18);
+  --color-dot: rgba(22, 21, 20, 0.11);
+  --color-check: rgba(22, 21, 20, 0.05);
+
+  /* --- color: brand + semantic --- */
+  --color-accent: #d6204f; /* Rouge — overridable by the accent picker */
+  --color-accent-ink: #ffffff;
+  --color-accent-soft: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  --color-danger: #e0243b;
+  --color-danger-ink: #ffffff;
+  --color-success: #1f8f62;
+  --color-scrim: rgba(14, 12, 10, 0.4);
+  --color-shadow: rgba(40, 24, 16, 0.3);
+
+  /* --- typography --- */
+  --font-ui: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'Atelier Mono', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-display: 'Instrument Serif', 'Times New Roman', Georgia, serif;
+
+  --text-2xs: 10px; /* mono caps labels */
+  --text-xs: 11px; /* meta, values */
+  --text-sm: 12.5px; /* control labels, hints */
+  --text-md: 14px; /* body, buttons */
+  --text-lg: 17px; /* serif captions */
+  --text-xl: 22px; /* panel + dialog titles (serif) */
+  --text-2xl: 32px; /* section display */
+  --text-3xl: clamp(44px, 6.4vw, 92px); /* hero */
+
+  --leading-tight: 1.02;
+  --leading-snug: 1.25;
+  --leading-normal: 1.5;
+  --tracking-caps: 0.14em;
+  --tracking-wide: 0.22em;
+
+  /* --- space (4pt) --- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* --- shape --- */
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-pill: 999px;
+  --stroke: 1px;
+
+  /* --- sizes --- */
+  --control-sm: 28px;
+  --control-md: 36px;
+  --control-lg: 44px;
+  --topbar-h: 56px;
+  --rail-w: 60px;
+  --sidebar-w: 256px;
+  --inspector-w: 328px;
+  --optionsbar-h: 52px;
+  --statusbar-h: 36px;
+
+  /* --- elevation --- */
+  --shadow-1: 0 0 0 1px var(--color-line), 0 1px 2px var(--color-line);
+  --shadow-2: 0 0 0 1px var(--color-line), 0 16px 36px -20px var(--color-shadow);
+  --shadow-3: 0 0 0 1px var(--color-line), 0 50px 120px -40px rgba(0, 0, 0, 0.55);
+  --shadow-art: 0 0 0 1px var(--color-line), 0 44px 90px -46px var(--color-shadow), 0 14px 28px -20px var(--color-shadow);
+
+  /* --- motion --- */
+  --dur-1: 120ms;
+  --dur-2: 200ms;
+  --dur-3: 320ms;
+  --ease-out: cubic-bezier(0.2, 0.9, 0.3, 1);
+  --ease-spring: cubic-bezier(0.3, 1.45, 0.5, 1);
+
+  /* --- layers --- */
+  --z-canvas-ui: 10;
+  --z-popover: 30;
+  --z-sheet: 40;
+  --z-toast: 60;
+  --z-busy: 70;
+}
+
+/* Dark: same roles, night values. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --color-paper: #0f0e0d;
+    --color-surface: #1f1d1b;
+    --color-sunken: #0a0a09;
+    --color-stage: #090908;
+    --color-ink: #efebe4;
+    --color-ink-2: #bdb8af;
+    --color-ink-3: #958f86;
+    --color-line: rgba(239, 235, 228, 0.09);
+    --color-line-strong: rgba(239, 235, 228, 0.2);
+    --color-dot: rgba(239, 235, 228, 0.07);
+    --color-check: rgba(239, 235, 228, 0.04);
+    --color-shadow: rgba(0, 0, 0, 0.75);
+    --color-scrim: rgba(0, 0, 0, 0.55);
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --color-paper: #0f0e0d;
+  --color-surface: #1f1d1b;
+  --color-sunken: #0a0a09;
+  --color-stage: #090908;
+  --color-ink: #efebe4;
+  --color-ink-2: #bdb8af;
+  --color-ink-3: #958f86;
+  --color-line: rgba(239, 235, 228, 0.09);
+  --color-line-strong: rgba(239, 235, 228, 0.2);
+  --color-dot: rgba(239, 235, 228, 0.07);
+  --color-check: rgba(239, 235, 228, 0.04);
+  --color-shadow: rgba(0, 0, 0, 0.75);
+  --color-scrim: rgba(0, 0, 0, 0.55);
+}

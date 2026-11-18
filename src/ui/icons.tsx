@@ -296,4 +296,31 @@ export const I = {
       <circle cx="19" cy="12" r="1.2" fill="currentColor" />
     </Svg>
   ),
+  Search: (p: P) => (
+    <Svg {...p}>
+      <circle cx="11" cy="11" r="6" />
+      <path d="M20 20l-4.5-4.5" />
+    </Svg>
+  ),
+  Palette: (p: P) => (
+    <Svg {...p}>
+      <path d="M12 4a8 8 0 1 0 0 16c1.1 0 1.6-.8 1.3-1.7-.4-1.1.3-2.3 1.6-2.3H17a3 3 0 0 0 3-3c0-5-3.6-9-8-9z" />
+      <circle cx="7.8" cy="11" r="1" fill="currentColor" />
+      <circle cx="10.5" cy="7.5" r="1" fill="currentColor" />
+      <circle cx="15" cy="8" r="1" fill="currentColor" />
+    </Svg>
+  ),
+  Grid: (p: P) => (
+    <Svg {...p}>
+      <rect x="4" y="4" width="6.5" height="6.5" rx="1.5" />
+      <rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5" />
+      <rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5" />
+      <rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5" />
+    </Svg>
+  ),
+  Arrow: (p: P) => (
+    <Svg {...p}>
+      <path d="M5 12h14M13 6l6 6-6 6" />
+    </Svg>
+  ),
 }

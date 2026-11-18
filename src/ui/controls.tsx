@@ -1,25 +1,38 @@
 import { useId, type CSSProperties, type ReactNode } from 'react'
 
+/**
+ * A titled group of controls. `collapsible` turns it into a disclosure for
+ * secondary settings (progressive disclosure keeps each panel scannable).
+ */
 export function Section({
-  n,
   title,
   aside,
   children,
+  collapsible,
+  defaultOpen = true,
 }: {
-  n?: string
   title: string
   aside?: ReactNode
   children: ReactNode
+  collapsible?: boolean
+  defaultOpen?: boolean
 }) {
+  const head = (
+    <header className="section-head">
+      <h3>{title}</h3>
+      {aside}
+    </header>
+  )
+  if (collapsible)
+    return (
+      <details className="section" open={defaultOpen}>
+        <summary>{head}</summary>
+        <div className="section-body">{children}</div>
+      </details>
+    )
   return (
     <section className="section">
-      <header className="section-head">
-        <h3>
-          {n && <span className="section-n">{n}</span>}
-          {title}
-        </h3>
-        {aside}
-      </header>
+      {head}
       <div className="section-body">{children}</div>
     </section>
   )
@@ -83,19 +96,19 @@ export function Segmented<T extends string | number>({
   options: Option<T>[]
   onChange: (v: T) => void
   label?: string
-  size?: 'sm'
+  size?: 'sm' | 'lg'
 }) {
   return (
     <div className="field">
       {label && <span className="field-label">{label}</span>}
-      <div className={`segmented ${size === 'sm' ? 'sm' : ''}`} role="radiogroup" aria-label={label}>
+      <div className={`segmented ${size ?? ''}`} role="radiogroup" aria-label={label}>
         {options.map((o) => (
           <button
             key={String(o.value)}
             type="button"
             role="radio"
             aria-checked={o.value === value}
-            className={o.value === value ? 'on' : ''}
+            className={o.value === value ? 'is-on' : ''}
             title={o.title}
             onClick={() => onChange(o.value)}
           >

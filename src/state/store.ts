@@ -77,6 +77,8 @@ export interface UiSettings {
   sheet: 0 | 1 | 2
   /** Draw touch points into recordings. */
   recPointer: boolean
+  /** Command palette (⌘K) open. */
+  palette: boolean
 }
 
 export const DEFAULT_SHAPE: ShapeSettings = {
@@ -175,6 +177,7 @@ const DEFAULT_UI: UiSettings = {
   exportOpen: false,
   sheet: 0,
   recPointer: true,
+  palette: false,
 }
 
 export interface Toast {

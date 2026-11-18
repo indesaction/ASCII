@@ -48,7 +48,7 @@ export function ShapePanel() {
               <button
                 key={c.id}
                 type="button"
-                className={`chip ${shape.charsetId === c.id ? 'on' : ''}`}
+                className={`chip ${shape.charsetId === c.id ? 'is-on' : ''}`}
                 onClick={() => set({ charsetId: c.id })}
                 title={c.chars}
               >
@@ -114,7 +114,7 @@ export function ShapePanel() {
       )}
 
       {(shape.mode === 'density' || shape.mode === 'braille') && !(shape.mode === 'density' && shape.detail) && (
-        <Section title="Dithering">
+        <Section title="Dithering" collapsible defaultOpen={shape.dither !== 'none'}>
           <Segmented
             size="sm"
             value={shape.dither}
@@ -155,18 +155,21 @@ export function ShapePanel() {
 
       <Section
         title="Tone"
+        collapsible
         aside={
           <button
             type="button"
             className="link"
-            onClick={() =>
+            onClick={(e) => {
+              // Inside the disclosure summary: don't toggle it.
+              e.preventDefault()
               set({
                 brightness: DEFAULT_SHAPE.brightness,
                 contrast: DEFAULT_SHAPE.contrast,
                 gamma: DEFAULT_SHAPE.gamma,
                 invert: false,
               })
-            }
+            }}
           >
             Reset
           </button>

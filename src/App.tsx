@@ -5,25 +5,85 @@ import { contrastText } from './engine/color'
 import { ACCENTS, useApp, type Tab } from './state/store'
 import { Board } from './ui/Board'
 import { TOOLS } from './ui/catalog'
+import { CommandPalette } from './ui/CommandPalette'
+import { DesignSystemPage } from './ui/DesignSystemPage'
+import { Button, IconButton, Kbd, Popover } from './ui/ds'
 import { ExportSheet } from './ui/ExportSheet'
 import { I } from './ui/icons'
-import { LayersPanel } from './ui/panels/LayersPanel'
+import { LayerInspector, LayerStack, LayersPanel } from './ui/panels/LayersPanel'
 import { MotionPanel } from './ui/panels/MotionPanel'
 import { ShapePanel } from './ui/panels/ShapePanel'
 import { StylePanel } from './ui/panels/StylePanel'
+import { useMedia } from './ui/useMedia'
+import { OptionsBar, RecButton, StatusBar, TakeDialog, ToolRail } from './ui/Workspace'
 
-const TABS: { id: Tab; name: string; icon: ReactNode }[] = [
-  { id: 'layers', name: 'Layers', icon: <I.Layers /> },
-  { id: 'shape', name: 'Shape', icon: <I.Shape /> },
-  { id: 'style', name: 'Style', icon: <I.Style /> },
-  { id: 'motion', name: 'Motion', icon: <I.Motion /> },
-]
+const WIDE = '(min-width: 1180px)'
+const COMPACT = '(max-width: 860px)'
+
+function tabsFor(wide: boolean): { id: Tab; name: string; icon: ReactNode }[] {
+  return [
+    { id: 'layers', name: wide ? 'Layer' : 'Layers', icon: <I.Layers /> },
+    { id: 'shape', name: 'Shape', icon: <I.Shape /> },
+    { id: 'style', name: 'Style', icon: <I.Style /> },
+    { id: 'motion', name: 'Motion', icon: <I.Motion /> },
+  ]
+}
+
+const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
+
+// ---------------------------------------------------------------------------
+// top bar
+// ---------------------------------------------------------------------------
+
+function Appearance() {
+  const ui = useApp((s) => s.ui)
+  const setUi = useApp((s) => s.setUi)
+  const [anchor, setAnchor] = useState<DOMRect | null>(null)
+  return (
+    <>
+      <IconButton label="Appearance" icon={<I.Palette />} aria-expanded={!!anchor} onClick={(e) => setAnchor(anchor ? null : e.currentTarget.getBoundingClientRect())} />
+      {anchor && (
+        <Popover anchor={anchor} label="Appearance" onClose={() => setAnchor(null)}>
+          <span className="t-label">Appearance</span>
+          <div className="segmented" role="radiogroup" aria-label="Theme">
+            {(['light', 'dark'] as const).map((t) => (
+              <button key={t} type="button" role="radio" aria-checked={ui.theme === t} className={ui.theme === t ? 'is-on' : ''} onClick={() => setUi({ theme: t })}>
+                {t === 'light' ? 'Paper' : 'Night'}
+              </button>
+            ))}
+          </div>
+          <div className="field">
+            <span className="field-label">Accent</span>
+            <div className="accents" role="radiogroup" aria-label="Accent color">
+              {ACCENTS.map((a) => (
+                <button key={a.id} type="button" role="radio" aria-checked={ui.accent === a.color} aria-label={a.name} title={a.name} className={ui.accent === a.color ? 'is-on' : ''} style={{ background: a.color }} onClick={() => setUi({ accent: a.color })} />
+              ))}
+            </div>
+          </div>
+          <button
+            type="button"
+            className="link"
+            style={{ alignSelf: 'flex-start' }}
+            onClick={() => {
+              setAnchor(null)
+              location.hash = 'design-system'
+            }}
+          >
+            Open the design system
+          </button>
+        </Popover>
+      )}
+    </>
+  )
+}
 
 function TopBar() {
   const title = useApp((s) => s.title)
-  const ui = useApp((s) => s.ui)
   const setUi = useApp((s) => s.setUi)
-  const hasArt = useApp((s) => !!s.board)
+  const board = useApp((s) => s.board)
+  const layers = useApp((s) => s.layers.length)
+  const compact = useMedia(COMPACT)
+  const hasArt = !!board
   return (
     <header className="topbar">
       <div className="brand" aria-label="ASCII Atelier">
@@ -32,61 +92,56 @@ function TopBar() {
         <i className="brand-dot" />
       </div>
       {hasArt && (
-        <input
-          className="title-input"
-          value={title}
-          aria-label="Title"
-          spellCheck={false}
-          onChange={(e) => useApp.setState({ title: e.target.value })}
-        />
+        <div className="doc">
+          <input className="title-input" value={title} aria-label="Title" spellCheck={false} onChange={(e) => useApp.setState({ title: e.target.value })} />
+          <span className="doc-meta t-meta">
+            {board.width} × {board.height} px · {layers} {layers === 1 ? 'layer' : 'layers'}
+          </span>
+        </div>
       )}
       <div className="top-actions">
-        <div className="accents" role="radiogroup" aria-label="Accent color">
-          {ACCENTS.map((a) => (
-            <button
-              key={a.id}
-              type="button"
-              role="radio"
-              aria-checked={ui.accent === a.color}
-              aria-label={a.name}
-              title={a.name}
-              className={ui.accent === a.color ? 'on' : ''}
-              style={{ background: a.color }}
-              onClick={() => setUi({ accent: a.color })}
-            />
-          ))}
-        </div>
-        <button
-          type="button"
-          className="icon-btn"
-          aria-label={ui.theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-          onClick={() => setUi({ theme: ui.theme === 'dark' ? 'light' : 'dark' })}
-        >
-          {ui.theme === 'dark' ? <I.Sun /> : <I.Moon />}
-        </button>
-        <button type="button" className="btn primary" aria-label="Export" disabled={!hasArt} onClick={() => setUi({ exportOpen: true })}>
-          <I.Download /> <span className="hide-xs">Export</span>
-        </button>
+        {compact ? (
+          <IconButton label="Search actions" icon={<I.Search />} onClick={() => setUi({ palette: true })} />
+        ) : (
+          <Button variant="ghost" className="cmdk-btn" icon={<I.Search size={16} />} onClick={() => setUi({ palette: true })}>
+            <span style={{ flex: 1, textAlign: 'left' }}>Search actions</span>
+            <Kbd>{isMac ? '⌘K' : 'Ctrl K'}</Kbd>
+          </Button>
+        )}
+        <Appearance />
+        {hasArt && (
+          <>
+            <span className="top-divider" />
+            <RecButton compact={compact} />
+            <Button variant="primary" className={compact ? 'btn--icon' : ''} icon={<I.Download />} aria-label="Export" onClick={() => setUi({ exportOpen: true })}>
+              {!compact && 'Export'}
+            </Button>
+          </>
+        )}
       </div>
     </header>
   )
 }
 
-function Tabs({ className }: { className: string }) {
+// ---------------------------------------------------------------------------
+// panels
+// ---------------------------------------------------------------------------
+
+function Tabs({ className, wide }: { className: string; wide: boolean }) {
   const tab = useApp((s) => s.tab)
   const setTab = useApp((s) => s.setTab)
   const sheet = useApp((s) => s.ui.sheet)
   const setUi = useApp((s) => s.setUi)
   const mobile = className.includes('tabbar')
   return (
-    <nav className={className} role="tablist">
-      {TABS.map((t) => (
+    <nav className={className} role="tablist" aria-label="Panels">
+      {tabsFor(wide).map((t) => (
         <button
           key={t.id}
           type="button"
           role="tab"
           aria-selected={tab === t.id}
-          className={tab === t.id ? 'on' : ''}
+          className={tab === t.id ? 'is-on' : ''}
           onClick={() => {
             if (mobile && tab === t.id) setUi({ sheet: sheet ? 0 : 1 })
             else {
@@ -106,6 +161,7 @@ function Tabs({ className }: { className: string }) {
 /** Drag the handle to resize the mobile sheet between its snap points. */
 function SheetHandle() {
   const setUi = useApp((s) => s.setUi)
+  const sheet = useApp((s) => s.ui.sheet)
   const start = useRef<{ y: number; sheet: number } | null>(null)
   return (
     <div
@@ -114,16 +170,15 @@ function SheetHandle() {
       aria-label="Resize controls"
       aria-valuemin={0}
       aria-valuemax={2}
-      aria-valuenow={useApp.getState().ui.sheet}
+      aria-valuenow={sheet}
       tabIndex={0}
       onKeyDown={(e) => {
-        const s = useApp.getState().ui.sheet
-        if (e.key === 'ArrowUp') setUi({ sheet: Math.min(2, s + 1) as 0 | 1 | 2 })
-        if (e.key === 'ArrowDown') setUi({ sheet: Math.max(0, s - 1) as 0 | 1 | 2 })
+        if (e.key === 'ArrowUp') setUi({ sheet: Math.min(2, sheet + 1) as 0 | 1 | 2 })
+        if (e.key === 'ArrowDown') setUi({ sheet: Math.max(0, sheet - 1) as 0 | 1 | 2 })
       }}
       onPointerDown={(e) => {
         e.currentTarget.setPointerCapture(e.pointerId)
-        start.current = { y: e.clientY, sheet: useApp.getState().ui.sheet }
+        start.current = { y: e.clientY, sheet }
       }}
       onPointerUp={(e) => {
         const st = start.current
@@ -137,17 +192,40 @@ function SheetHandle() {
   )
 }
 
-function Panel() {
+function Inspector({ wide }: { wide: boolean }) {
   const tab = useApp((s) => s.tab)
   return (
-    <div className="panel-body" key={tab}>
-      {tab === 'layers' && <LayersPanel />}
-      {tab === 'shape' && <ShapePanel />}
-      {tab === 'style' && <StylePanel />}
-      {tab === 'motion' && <MotionPanel />}
-    </div>
+    <aside className="inspector" aria-label="Inspector">
+      <SheetHandle />
+      <Tabs className="tabs" wide={wide} />
+      <div className="panel-body" key={tab} role="tabpanel">
+        {tab === 'layers' && (wide ? <LayerInspector /> : <LayersPanel />)}
+        {tab === 'shape' && <ShapePanel />}
+        {tab === 'style' && <StylePanel />}
+        {tab === 'motion' && <MotionPanel />}
+      </div>
+    </aside>
   )
 }
+
+function Sidebar() {
+  const count = useApp((s) => s.layers.length + 1)
+  return (
+    <aside className="sidebar" aria-label="Layers">
+      <div className="panel-head">
+        <span className="t-label">Layers</span>
+        <span className="t-meta">{count}</span>
+      </div>
+      <div className="panel-body">
+        <LayerStack heading={false} />
+      </div>
+    </aside>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// feedback
+// ---------------------------------------------------------------------------
 
 function Toasts() {
   const toasts = useApp((s) => s.toasts)
@@ -173,7 +251,7 @@ function Busy() {
         <div className={`progress ${busy.progress < 0 ? 'indeterminate' : ''}`}>
           <i style={busy.progress < 0 ? undefined : { width: `${Math.round(busy.progress * 100)}%` }} />
         </div>
-        {busy.progress >= 0 && <span className="mono-dim">{Math.round(busy.progress * 100)}%</span>}
+        {busy.progress >= 0 && <span className="t-meta">{Math.round(busy.progress * 100)}%</span>}
       </div>
     </div>
   )
@@ -185,20 +263,37 @@ function isTyping(e: Event): boolean {
   return t.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName)
 }
 
+function useHash(): string {
+  const [hash, setHash] = useState(() => location.hash)
+  useEffect(() => {
+    const on = () => setHash(location.hash)
+    window.addEventListener('hashchange', on)
+    return () => window.removeEventListener('hashchange', on)
+  }, [])
+  return hash
+}
+
+// ---------------------------------------------------------------------------
+// app
+// ---------------------------------------------------------------------------
+
 export default function App() {
   const theme = useApp((s) => s.ui.theme)
   const accent = useApp((s) => s.ui.accent)
   const sheet = useApp((s) => s.ui.sheet)
+  const hasArt = useApp((s) => !!s.board)
   const tab = useApp((s) => s.tab)
+  const wide = useMedia(WIDE)
+  const hash = useHash()
   const [dragging, setDragging] = useState(false)
 
   // Theme + accent
   useEffect(() => {
     const root = document.documentElement
     root.dataset.theme = theme
-    root.style.setProperty('--accent', accent)
-    root.style.setProperty('--accent-ink', contrastText(accent))
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#0f0f0e' : '#f3f0ea')
+    root.style.setProperty('--color-accent', accent)
+    root.style.setProperty('--color-accent-ink', contrastText(accent))
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#0f0e0d' : '#f4f1eb')
   }, [theme, accent])
 
   // Drag & drop + paste add layers
@@ -250,10 +345,15 @@ export default function App() {
   // Keyboard shortcuts
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (isTyping(e)) return
       const mod = e.metaKey || e.ctrlKey
       const s = useApp.getState()
       const k = e.key.toLowerCase()
+      if (mod && k === 'k') {
+        e.preventDefault()
+        s.setUi({ palette: !s.ui.palette })
+        return
+      }
+      if (isTyping(e) || s.ui.palette) return
       if (mod && k === 'z') {
         e.preventDefault()
         if (e.shiftKey) redo()
@@ -291,19 +391,29 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
+  if (hash === '#design-system')
+    return (
+      <>
+        <DesignSystemPage />
+        <Toasts />
+      </>
+    )
+
   return (
-    <div className={`app sheet-${sheet}`} data-tab={tab}>
+    <div className={`app ${hasArt ? 'has-art' : 'is-empty'} sheet-${sheet}`} data-tab={tab}>
       <TopBar />
-      <main className="main">
+      {hasArt && wide && <Sidebar />}
+      {hasArt && <ToolRail />}
+      {hasArt && <OptionsBar />}
+      <main className="canvas-area">
         <Board />
       </main>
-      <aside className="panel" aria-label="Controls">
-        <SheetHandle />
-        <Tabs className="tabs" />
-        <Panel />
-      </aside>
-      <Tabs className="tabbar" />
+      {hasArt && <StatusBar />}
+      {hasArt && <Inspector wide={wide} />}
+      {hasArt && <Tabs className="tabbar" wide={false} />}
       <ExportSheet />
+      <TakeDialog />
+      <CommandPalette />
       <Toasts />
       <Busy />
       {dragging && (

@@ -2,6 +2,7 @@ import { ANIMATIONS } from '../../anim/animations'
 import { startRecording, stopRecording } from '../../app/recorder'
 import { useApp } from '../../state/store'
 import { ColorField, Hint, Section, Slider, Toggle } from '../controls'
+import { Button, Tile } from '../ds'
 import { I } from '../icons'
 import { INTERACTIONS } from '../interactions'
 
@@ -54,32 +55,21 @@ export function MotionPanel() {
         title="Animation"
         aside={
           motion.animation !== 'none' && (
-            <button type="button" className="btn sm" onClick={() => set({ playing: !motion.playing })}>
-              {motion.playing ? <I.Pause size={14} /> : <I.Play size={14} />}
+            <Button size="sm" icon={motion.playing ? <I.Pause size={14} /> : <I.Play size={14} />} onClick={() => set({ playing: !motion.playing })}>
               {motion.playing ? 'Pause' : 'Play'}
-            </button>
+            </Button>
           )
         }
       >
-        <div className="anim-grid">
+        <div className="tile-grid">
           {ANIMATIONS.map((a) => (
-            <button
-              key={a.id}
-              type="button"
-              className={`anim ${motion.animation === a.id ? 'on' : ''}`}
-              onClick={() => set({ animation: a.id, duration: a.duration, playing: true })}
-              title={a.hint}
-              aria-pressed={motion.animation === a.id}
-            >
-              <span className="anim-glyph">{GLYPH[a.id] ?? '·'}</span>
-              <span className="anim-name">{a.name}</span>
-            </button>
+            <Tile key={a.id} size="sm" selected={motion.animation === a.id} emblem={GLYPH[a.id] ?? '·'} label={a.name} title={a.hint} onClick={() => set({ animation: a.id, duration: a.duration, playing: true })} />
           ))}
         </div>
         <Hint>{ANIMATIONS.find((a) => a.id === motion.animation)?.hint}. Every animation loops seamlessly for GIF, video and web embeds.</Hint>
       </Section>
 
-      <Section title="Timing">
+      <Section title="Timing" collapsible>
         <Slider label="Speed" value={motion.speed} min={0.1} max={3} onChange={(speed) => set({ speed })} format={(v) => `${v.toFixed(2)}×`} />
         <Slider label="Intensity" value={motion.intensity} min={0} max={1} onChange={(intensity) => set({ intensity })} format={(v) => `${Math.round(v * 100)}%`} />
         <Slider label="Loop length" value={motion.duration} min={1} max={12} step={0.5} onChange={(duration) => set({ duration })} format={(v) => `${v}s`} />
@@ -87,22 +77,20 @@ export function MotionPanel() {
       </Section>
 
       <Section title="Interaction">
-        <div className="anim-grid">
+        <div className="tile-grid">
           {INTERACTIONS.map((m) => (
-            <button
+            <Tile
               key={m.id}
-              type="button"
-              className={`anim ${interaction.mode === m.id ? 'on' : ''}`}
+              size="sm"
+              selected={interaction.mode === m.id}
+              emblem={ICON[m.id]}
+              label={m.name}
               title={m.hint}
-              aria-pressed={interaction.mode === m.id}
               onClick={() => {
                 setInteraction({ mode: m.id })
                 if (m.id !== 'off') setTool('interact')
               }}
-            >
-              <span className="anim-glyph">{ICON[m.id]}</span>
-              <span className="anim-name">{m.name}</span>
-            </button>
+            />
           ))}
         </div>
         <Hint>{INTERACTIONS.find((m) => m.id === interaction.mode)?.hint}. Works on photos, video and camera, on top of any animation, and in web embeds.</Hint>
@@ -114,13 +102,13 @@ export function MotionPanel() {
         <Hint>Record the board while you play with it. Animations, video layers and your gestures are captured live.</Hint>
         <Toggle label="Show touch points" hint="Draws a soft dot where you point or tap" checked={recPointer} onChange={(v) => setUi({ recPointer: v })} />
         {recording ? (
-          <button type="button" className="btn wide rec-wide live" onClick={() => void stopRecording()}>
-            <i className="rec-dot" /> Stop recording
-          </button>
+          <Button variant="danger" wide className="is-live" icon={<i className="rec-dot" />} onClick={() => void stopRecording()}>
+            Stop recording
+          </Button>
         ) : (
-          <button type="button" className="btn wide rec-wide" onClick={() => startRecording(recPointer)}>
-            <i className="rec-dot" /> Start recording
-          </button>
+          <Button variant="secondary" wide icon={<i className="rec-dot" />} onClick={() => startRecording(recPointer)}>
+            Start recording
+          </Button>
         )}
       </Section>
     </>
