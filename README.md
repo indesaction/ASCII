@@ -72,7 +72,7 @@ Shortcuts: `B T E F S C L R I V` pick tools · `⌘/Ctrl+Z` undo · `⌘/Ctrl+Sh
 | GIF | One seamless loop |
 | Video | MP4 (or WebM) of the animation, or a live camera/video capture |
 | **Web embed** | One self-contained HTML file that plays the animation (and magnet) anywhere |
-| Text / HTML / **ANSI** | Plain text, a colored HTML page, or 24-bit terminal art (`cat art.ans`) |
+| Text / HTML / **ANSI** | Plain text, a colored HTML page, or 24-bit terminal art (`cat art-ansi.txt`) |
 | Project | Settings, source and edits in one `.json`. Drop it back in to continue |
 
 Glyphs missing from the bundled font (katakana, symbols, …) are **auto-traced**

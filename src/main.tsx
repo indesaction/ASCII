@@ -22,7 +22,13 @@ createRoot(document.getElementById('root')!).render(
   </StrictMode>,
 )
 
-if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+{
+  const cs = getComputedStyle(document.documentElement)
+  if (parseFloat(cs.paddingTop) > 0 || parseFloat(cs.paddingBottom) > 0) document.documentElement.classList.add('host-insets')
+}
+
+// Offline support for the standalone app (not when hosted inside another page).
+if (import.meta.env.PROD && 'serviceWorker' in navigator && window.top === window.self && !('claude' in window)) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js').catch(() => undefined)
   })

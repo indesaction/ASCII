@@ -166,7 +166,7 @@ export function ExportSheet() {
         case 'ansi': {
           const { toAnsi } = await import('../export/text')
           blob = new Blob([toAnsi(studio.frame!, s.style)], { type: 'text/plain;charset=utf-8' })
-          name += '.ans'
+          name += '-ansi.txt'
           break
         }
         case 'project': {
@@ -186,9 +186,8 @@ export function ExportSheet() {
         s.toast('Copied to clipboard', 'success')
       } else if (action === 'share') {
         const ok = await shareBlob(blob, name, s.title)
-        if (!ok) downloadBlob(blob, name)
-      } else {
-        downloadBlob(blob, name)
+        if (!ok) await downloadBlob(blob, name)
+      } else if (await downloadBlob(blob, name)) {
         s.toast(`Saved ${name}${note}`, 'success')
       }
     } catch (err) {
@@ -208,7 +207,7 @@ export function ExportSheet() {
     embed: `${embedFont ? '~95 KB font embedded' : 'Uses system monospace'} · ${motion.magnet ? 'interactive' : 'autoplay'}`,
     txt: `${stats.cols} × ${stats.rows} characters`,
     html: 'Standalone page',
-    ansi: 'cat file.ans in a truecolor terminal',
+    ansi: 'Run cat on the file in a truecolor terminal',
     project: 'Drop the file back in to continue',
   }
 

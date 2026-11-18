@@ -35,7 +35,49 @@ export function fileBase(title: string): string {
   return `ascii-${slug || 'atelier'}`
 }
 
-export function downloadBlob(blob: Blob, filename: string): void {
+interface HostDownloads {
+  save(req: { filename: string; data: Blob }): Promise<{ status: string }>
+}
+
+let hostDownloads: Promise<HostDownloads | null> | null = null
+
+/** When hosted as a claude.ai page, files must be saved through the host's `downloads` capability. */
+function getHostDownloads(): Promise<HostDownloads | null> {
+  if (!hostDownloads) {
+    const host = (window as unknown as { claude?: { use?: (name: string) => Promise<unknown> } }).claude
+    hostDownloads =
+      typeof host?.use === 'function'
+        ? host.use('downloads').then((d) => (d as HostDownloads | null) ?? null, () => null)
+        : Promise.resolve(null)
+  }
+  return hostDownloads
+}
+
+const SAVE_ERRORS: Record<string, string> = {
+  rejected_extension: 'This file type can’t be saved here.',
+  extension_not_enabled: 'This file type can’t be saved here.',
+  too_large: 'This file is too large to save here. Try a smaller scale.',
+  rate_limited: 'A save is already waiting for your confirmation.',
+}
+
+/** Save a file. Resolves false when the viewer declines the host's save prompt. */
+export async function downloadBlob(blob: Blob, filename: string): Promise<boolean> {
+  const host = await getHostDownloads()
+  if (host) {
+    try {
+      await host.save({ filename, data: blob })
+      return true
+    } catch (err) {
+      const code = (err as { code?: string }).code ?? ''
+      if (code === 'declined') return false
+      throw new Error(SAVE_ERRORS[code] ?? 'Saving files isn’t available in this view.')
+    }
+  }
+  saveWithLink(blob, filename)
+  return true
+}
+
+function saveWithLink(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url

@@ -21,7 +21,7 @@ export function toPlainText(f: AsciiFrame, trimRight = true): string {
   return lines.join('\n') + '\n'
 }
 
-/** 24-bit ANSI escape codes — `cat file.ans` in a modern terminal shows the art in color. */
+/** 24-bit ANSI escape codes — `cat file-ansi.txt` in a modern terminal shows the art in color. */
 export function toAnsi(f: AsciiFrame, style: StyleSettings): string {
   const bgDefault = style.transparent ? null : hexToRgb(style.background)
   let out = ''

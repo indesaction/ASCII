@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>ASCII Atelier — images & vectors set in type</title>
+    <title>ASCII Atelier</title>
     <meta
       name="description"
       content="Turn images, SVG vectors, video, camera and text into ASCII art. Animate it, edit it glyph by glyph, and export PNG, SVG, CMYK PDF, GIF, video or a live web embed."
@@ -21,7 +21,8 @@
       // Apply the saved theme before first paint to avoid a flash.
       try {
         var s = JSON.parse(localStorage.getItem('ascii-atelier:v1') || '{}')
-        var t = (s.ui && s.ui.theme) || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+        var host = document.documentElement.getAttribute('data-theme')
+        var t = (s.ui && s.ui.theme) || host || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
         document.documentElement.dataset.theme = t
         if (s.ui && s.ui.accent) document.documentElement.style.setProperty('--accent', s.ui.accent)
       } catch (e) {}

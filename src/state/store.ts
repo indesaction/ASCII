@@ -108,8 +108,16 @@ export const ACCENTS = [
   { id: 'jade', name: 'Jade', color: '#00a37a' },
 ]
 
+function initialTheme(): 'light' | 'dark' {
+  if (typeof document !== 'undefined') {
+    const t = document.documentElement.getAttribute('data-theme')
+    if (t === 'light' || t === 'dark') return t
+  }
+  return typeof matchMedia !== 'undefined' && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+}
+
 const DEFAULT_UI: UiSettings = {
-  theme: typeof matchMedia !== 'undefined' && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
+  theme: initialTheme(),
   accent: ACCENTS[0].color,
   zoom: 'fit',
   compare: false,

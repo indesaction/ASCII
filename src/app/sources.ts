@@ -144,11 +144,23 @@ export async function openVideo(file: File): Promise<void> {
 }
 
 export async function startCamera(facing: 'user' | 'environment' = 'user'): Promise<void> {
-  if (!navigator.mediaDevices?.getUserMedia) throw new Error('Camera is not available in this browser')
-  const stream = await navigator.mediaDevices.getUserMedia({
-    video: { facingMode: facing, width: { ideal: 1280 }, height: { ideal: 720 } },
-    audio: false,
-  })
+  if (!navigator.mediaDevices?.getUserMedia) {
+    throw new Error('The camera isn’t available here. Upload a photo or video instead.')
+  }
+  let stream: MediaStream
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: facing, width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: false,
+    })
+  } catch (err) {
+    const name = (err as Error).name
+    if (name === 'NotAllowedError' || name === 'SecurityError') {
+      throw new Error('Camera access is blocked. Allow it in your browser, or upload a photo or video instead.')
+    }
+    if (name === 'NotFoundError' || name === 'OverconstrainedError') throw new Error('No camera was found on this device.')
+    throw err
+  }
   const v = hiddenVideo()
   v.srcObject = stream
   await whenReady(v)

@@ -21,7 +21,24 @@
   --ease: cubic-bezier(0.2, 0.9, 0.3, 1);
 }
 
-[data-theme='dark'] {
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --paper: #0f0f0e;
+    --card: #181816;
+    --stage: #0a0a09;
+    --dot: rgba(238, 234, 227, 0.07);
+    --check: rgba(238, 234, 227, 0.04);
+    --ink: #eeeae3;
+    --ink-2: #b9b4ab;
+    --muted: #77726a;
+    --line: rgba(238, 234, 227, 0.09);
+    --line-strong: rgba(238, 234, 227, 0.2);
+    --shadow: rgba(0, 0, 0, 0.7);
+  }
+}
+
+:root[data-theme='dark'] {
   color-scheme: dark;
   --paper: #0f0f0e;
   --card: #181816;
@@ -85,8 +102,8 @@ textarea {
   grid-template-areas:
     'top top'
     'main panel';
-  height: 100vh;
-  height: 100dvh;
+  /* 100% (not 100vh) so the app fits inside any safe-area padding a host adds. */
+  height: 100%;
 }
 
 .main {
@@ -1669,6 +1686,16 @@ input[type='range']:focus-visible::-webkit-slider-thumb {
 .drop-overlay p {
   margin: 10px 0 0;
   font: 36px/1 var(--font-display);
+}
+
+/* A host that already pads the page for the phone's safe areas: don't pad twice. */
+.host-insets .topbar {
+  padding-top: 0;
+}
+
+.host-insets .tabbar,
+.host-insets .fmt-options {
+  padding-bottom: 4px;
 }
 
 /* ------------------------------------------------------------------ motion */
