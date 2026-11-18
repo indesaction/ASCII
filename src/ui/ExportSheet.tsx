@@ -4,9 +4,9 @@ import { cmykLabel, hexToRgb, rgbToCmyk, rgbToHex, type CmykOptions } from '../e
 import { cellMetrics } from '../engine/convert'
 import { isBlank } from '../engine/types'
 import { downloadBlob, fileBase, shareBlob, snapshot } from '../export/common'
-import { DEFAULT_PDF, PAGE_SIZES, type PdfOptions, type PageSize } from '../export/pdf'
+import { DEFAULT_PDF, PAGE_SIZES, type PdfOptions, type PageSize } from '../export/pdfOptions'
 import { canvasToBlob, isIOS, maxCanvasArea, renderStillCanvas } from '../export/raster'
-import { videoFormat } from '../export/motion'
+import { videoFormat } from '../export/videoFormat'
 import { useApp } from '../state/store'
 import { Hint, Section, Segmented, Select, Slider, Toggle } from './controls'
 import { I } from './icons'
@@ -104,7 +104,10 @@ export function ExportSheet() {
     let note = ''
     try {
       snapshot()
-      s.toast('Preparing…')
+      if (fmt === 'svg' || fmt === 'pdf' || fmt === 'embed' || fmt === 'png') {
+        useApp.setState({ busy: { label: fmt === 'pdf' ? 'Building CMYK PDF' : 'Exporting', progress: -1 } })
+        await new Promise((r) => setTimeout(r, 30))
+      }
       switch (fmt) {
         case 'png': {
           blob = await canvasToBlob(renderStillCanvas({ ...png, scale: pngScale }))

@@ -1642,6 +1642,11 @@ input[type='range']:focus-visible::-webkit-slider-thumb {
   transition: width 0.2s;
 }
 
+.progress.indeterminate i {
+  width: 35%;
+  animation: slide 1.1s var(--ease) infinite;
+}
+
 .drop-overlay {
   position: fixed;
   inset: 12px;
@@ -1678,6 +1683,15 @@ input[type='range']:focus-visible::-webkit-slider-thumb {
   from {
     opacity: 0;
     transform: translateY(12px);
+  }
+}
+
+@keyframes slide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(290%);
   }
 }
 

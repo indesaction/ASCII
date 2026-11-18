@@ -1,8 +1,11 @@
 // ASCII Atelier service worker: offline support.
 // Navigations are network-first (so updates land), assets are cache-first
 // (Vite fingerprints them, so a cached copy is always correct).
-const CACHE = 'atelier-v1'
-const CORE = ['./', './manifest.webmanifest', './icon.svg', './icon-192.png', './fonts/JetBrainsMonoNL-Regular.woff', './fonts/JetBrainsMonoNL-Bold.woff']
+// The build replaces the precache list and version (see vite.config.ts).
+const VERSION = 'dev'
+const PRECACHE = []
+const CACHE = 'atelier-' + VERSION
+const CORE = ['./', './manifest.webmanifest', './icon.svg', './icon-192.png', './fonts/JetBrainsMonoNL-Regular.woff', './fonts/JetBrainsMonoNL-Bold.woff', ...PRECACHE]
 
 self.addEventListener('install', (event) => {
   self.skipWaiting()
@@ -32,13 +35,13 @@ self.addEventListener('fetch', (event) => {
           caches.open(CACHE).then((c) => c.put('./', copy))
           return res
         })
-        .catch(() => caches.match('./').then((r) => r || Response.error())),
+        .catch(() => caches.match('./', { ignoreVary: true }).then((r) => r || Response.error())),
     )
     return
   }
 
   event.respondWith(
-    caches.match(req).then(
+    caches.match(req, { ignoreVary: true }).then(
       (hit) =>
         hit ||
         fetch(req).then((res) => {

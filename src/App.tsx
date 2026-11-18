@@ -138,10 +138,10 @@ function Busy() {
     <div className="busy" role="status">
       <div className="busy-card">
         <span className="busy-label">{busy.label}</span>
-        <div className="progress">
-          <i style={{ width: `${Math.round(busy.progress * 100)}%` }} />
+        <div className={`progress ${busy.progress < 0 ? 'indeterminate' : ''}`}>
+          <i style={busy.progress < 0 ? undefined : { width: `${Math.round(busy.progress * 100)}%` }} />
         </div>
-        <span className="mono-dim">{Math.round(busy.progress * 100)}%</span>
+        {busy.progress >= 0 && <span className="mono-dim">{Math.round(busy.progress * 100)}%</span>}
       </div>
     </div>
   )
