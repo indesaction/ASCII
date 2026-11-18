@@ -1,9 +1,9 @@
 # ASCII Atelier
 
-**Every image, set in type.** A web and mobile app that turns images, SVG vectors,
-video, a live camera or your own words into ASCII art. You can then animate it,
-edit it glyph by glyph, and export it for screens, terminals, the web and print,
-including true **CMYK vector PDFs**.
+**Every image, set in type.** A web and mobile app where photos, video, PDFs, vectors,
+a live camera, drawings and your own words become living ASCII art. Layer them on one
+board, touch and animate the result, record it, and export it for screens, terminals,
+the web and print, including true **CMYK vector PDFs**.
 
 Everything runs locally in the browser. Nothing is uploaded.
 
@@ -11,72 +11,80 @@ Everything runs locally in the browser. Nothing is uploaded.
 
 ## Features
 
-### Sources
-- **Images**: PNG, JPG, WEBP, GIF, AVIF (drop, paste or pick)
-- **Vectors**: SVG files are rasterized at 2048 px, so even thin strokes stay crisp
-- **Video**: MP4, WebM and MOV convert live while they play
-- **Camera**: live ASCII mirror with front/back switching and freeze-frame
-- **Type**: write text in display serif, serif, sans or mono and use it as the shape
-- **Samples**: generated in the browser (orb, vector bloom, aura, type)
-- **Shape from transparency**: logos and icons with alpha become clean silhouettes
+### The board: layers, live
+Everything happens on one interactive board. Stack as many layers as you like and the
+whole stack turns into ASCII in real time.
+- **Add layers above or below** the selected one: files, live camera, text, paint
+- **Per layer:** visibility, opacity, blend mode (multiply, screen, overlay, difference…),
+  move / scale / rotate with on-board handles or two-finger pinch, fit / fill / center,
+  duplicate, reorder
+- **Video and GIF layers** play inside the art, with play/pause, scrubbing, speed and loop
+- **Text layers** in display serif, serif, sans or mono (ink or color fill)
+- **Glyph layer** on top for typed characters and stamped symbols
+- Board aspect: original, 1:1, 4:5, 3:2, 16:9, 9:16, or a blank board to draw on
+
+### Opens almost anything
+JPG · PNG · WEBP · AVIF · animated **GIF** · **MP4 / WebM / MOV** · **PDF** (any page) ·
+**Illustrator .ai** · **EPS** (via its embedded preview) · **SVG** · **TIFF** · **PSD** ·
+existing ASCII art (**.txt** and 24-bit **ANSI**, colors included) · project files.
+Drop, paste or pick several at once; each arrives as a new layer.
+
+### Tools
+| Tool | Key | What it does |
+| --- | --- | --- |
+| Interact | P | Touch the art with the active pointer effect |
+| Move | V | Select, drag, scale and rotate layers |
+| Brush | B | Soft round brush with pen pressure, flow, softness and stroke smoothing. Paints adaptive *ink* (always legible) or any color |
+| Eraser | E | Erases paint, or masks any photo/video/text layer non-destructively (Alt restores) |
+| Glyph | G | Stamps a chosen character (✦ ♥ ◆ …) |
+| Type | T | Click a cell and type straight onto the art |
+| Pick | I | Picks a color and glyph from the board |
+| Pan | H | Scroll and look around when zoomed |
+
+One undo history covers strokes, glyphs and layer changes (`⌘/Ctrl+Z`, `⇧⌘Z`).
+`[` and `]` resize the brush.
 
 ### Conversion
 | Mode | What it does |
 | --- | --- |
-| Density | One glyph per cell, matched to the image's tone |
-| Contour | Sobel edges drawn with `/ \| \ -` strokes. Great for vectors |
-| Braille | 2×4 dots per character, for 8× the detail |
-| Pixels | Half blocks `▀` with separate top and bottom colors |
-| Phrase | Your own words repeated across the image (typographic portrait) |
+| Density | One glyph per cell, matched to tone |
+| Contour | Edges drawn with `/ \| \ -` strokes, great for vectors |
+| Braille | 2×4 dots per character for 8× detail |
+| Pixels | Half blocks `▀` with two colors per cell |
+| Phrase | Your words repeated across the image |
 
-- 10 character sets (Classic, Detailed, Blocks, Dots, Geometric, Letters, Binary,
-  Math, Matrix and Custom)
-- **Ink-density calibration**: every glyph is rendered and measured, so even a
-  custom set of emoji or katakana maps to tone correctly
-- **Shape matching**: inside cells that contain an edge, glyphs are chosen by
-  silhouette (`/ ( _ Y $`), not just brightness
-- Dithering: Floyd–Steinberg, Atkinson, Bayer. Tone: brightness, contrast, gamma, invert
+Ink-density calibration, shape matching, dithering (Floyd–Steinberg, Atkinson, Bayer),
+tone controls, and "ink from transparency" for logos and cut-outs.
 
 ### Style
-- **10 one-click looks**: Editorial, Neon, Terminal, Blueprint, Riso, Fine Braille,
-  Pixel, Typographic, Chrome, Vapor
-- Color modes: mono, original colors (with saturation), gradient (mapped by tone,
-  →, ↓, ↘ or ◎) and palette (Process CMYK, Riso, Bauhaus, Handheld and more)
-- **Palette extraction** (k-means) from your image, used as a palette or a gradient
-- Cell tint, transparent background, font size, line height, tracking, weight, margin
-- **CMYK soft proof**: preview how colors will look printed with process inks
+11 one-click looks (including **Passion**), mono / original / gradient / palette color,
+palette extraction from the board, cell tint, typography and a CMYK soft proof.
 
 ### Motion
-12 animations, all seamlessly looping, so GIF, video and web exports loop perfectly:
-Decode · Rain · Wave · Glitch · Type · Assemble · Ripple · Holo · Vortex · Pulse ·
-Gravity · Scanline. Each has speed, intensity, loop length and a highlight color.
+**17 seamless-loop animations:** Decode · Rain · Wave · Glitch · Assemble · Ripple · Holo ·
+Pulse · Scanline · **Silk** · **Kaleido** · **Burn** · **Shatter** · **Tilt** · **Glitter** ·
+**Warp** · **Runway**.
 
-**Magnetic cursor**: glyphs scatter away from your pointer or finger. This also
-works in exported web embeds.
+**Pointer interactions** work on photos, video and camera, on top of any animation:
+Repel · Attract · Swirl · **Lens** (a loupe that reveals the original image) · Ripple ·
+Burst · Spotlight · Trail · **Tilt** (3D parallax).
 
-### Real-time editor
-Brush, Type, Erase, Fill, **Shade** (steps glyphs denser or lighter along the tone
-ramp), Recolor, Line, Box and Pick, with brush size, glyph palette and undo/redo.
-Edits live on their **own layer** above the conversion, so you can keep changing
-style and motion without losing hand-made work.
-
-Shortcuts: `B T E F S C L R I V` pick tools · `⌘/Ctrl+Z` undo · `⌘/Ctrl+Shift+Z` redo ·
-`Space` play/pause · `⌘/Ctrl+E` export.
+### Recording
+Hit **Rec** and play: animations, playing video and your gestures (with optional touch
+points) are captured live to MP4/WebM, then previewed before you save or share.
 
 ### Export
 | Format | Notes |
 | --- | --- |
-| **PDF · CMYK** | Pure vector glyph outlines, all colors **DeviceCMYK**. A4/A3/A5/Letter/Tabloid/Square/fit, margins, bleed (0/3/5 mm), crop marks, TrimBox/BleedBox, rich black, neutral grays on K only, total-ink limit, caption |
-| **SVG** | Outlined glyphs (font-independent) or live text. Colors grouped, each with a `data-cmyk` value |
-| PNG | Up to 6× scale, optional transparency or current animation frame |
-| GIF | One seamless loop |
-| Video | MP4 (or WebM) of the animation, or a live camera/video capture |
-| **Web embed** | One self-contained HTML file that plays the animation (and magnet) anywhere |
-| Text / HTML / **ANSI** | Plain text, a colored HTML page, or 24-bit terminal art (`cat art-ansi.txt`) |
-| Project | Settings, source and edits in one `.json`. Drop it back in to continue |
+| **PDF · CMYK** | Vector glyph outlines, all colors **DeviceCMYK**, page sizes, bleed, crop marks, TrimBox/BleedBox, rich black, neutral grays on K, ink limit, caption |
+| **SVG** | Outlined glyphs or live text, colors grouped with `data-cmyk` values |
+| PNG | Up to 6×, optional transparency |
+| GIF / Video | One seamless loop of the animation |
+| **Web embed** | One HTML file that plays the animation and pointer effect anywhere |
+| Text / HTML / **ANSI** | Plain text, colored HTML page, or 24-bit terminal art (`cat art-ansi.txt`) |
+| Project | Every layer, setting and glyph in one `.json`. Drop it back in to continue |
 
-Glyphs missing from the bundled font (katakana, symbols, …) are **auto-traced**
-into vector paths, so SVG and PDF exports never fall back to a missing font.
+Glyphs missing from the bundled font are **auto-traced** into vector paths.
 
 ---
 
@@ -96,7 +104,8 @@ Requires Node 20+.
 ### Mobile
 The app is a **PWA**: open it on a phone and choose *Add to Home Screen*. It then
 runs full-screen and works offline. The layout switches to a bottom tab bar with a
-collapsible control sheet (tap the active tab to show or hide it). Touch drawing
+draggable control sheet (drag its handle, or tap the active tab to hide it), and the
+tools sit on a bar over the art. Touch drawing
 works in the editor, and on iOS and Android exports can go straight to the
 system share sheet.
 
@@ -113,8 +122,10 @@ to `main`. To use it, enable Pages under *Settings → Pages → Source: GitHub 
 src/
   engine/     conversion: sampling, tone, dithering, modes, charsets, color/CMYK
   render/     WebGL2 instanced glyph renderer + Canvas 2D fallback, glyph atlas
-  anim/       animations and frame composition (shared by app, exports and embeds)
-  app/        studio (frame loop), sources, editor tools, edit layer, fonts
+  anim/       animations, pointer interactions, frame composition
+              (shared by the app, exports and web embeds)
+  app/        studio (compositor + frame loop), layers, importers, brush, tools,
+              history, recorder, glyph layer, fonts
   export/     PNG, SVG, PDF writer, GIF/video, text formats, web embed, projects
   player/     standalone player inlined into web-embed exports
   ui/         React components (panels, stage, export sheet)
@@ -136,5 +147,9 @@ src/
 - Monospace font: [JetBrains Mono](https://github.com/JetBrains/JetBrainsMono) (NL),
   SIL Open Font License 1.1, see `public/fonts/JetBrainsMono-OFL.txt`
 - Display font: [Instrument Serif](https://github.com/Instrument/instrument-serif), SIL OFL 1.1
-- [opentype.js](https://github.com/opentypejs/opentype.js) (glyph outlines) and
-  [gifenc](https://github.com/mattdesl/gifenc) (GIF encoding), both MIT
+- [opentype.js](https://github.com/opentypejs/opentype.js) (glyph outlines),
+  [gifenc](https://github.com/mattdesl/gifenc) (GIF encoding), [UTIF.js](https://github.com/photopea/UTIF.js) (TIFF),
+  [ag-psd](https://github.com/Agamnentzar/ag-psd) (PSD) and [gifuct-js](https://github.com/matt-way/gifuct-js) (GIF decoding): MIT
+- [PDF.js](https://github.com/mozilla/pdf.js) (PDF and Illustrator files): Apache-2.0
+- EPS files are read through their embedded TIFF/EPSI preview, so no PostScript
+  interpreter is bundled

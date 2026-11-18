@@ -1,28 +1,23 @@
 import { useApp } from '../state/store'
-import { freezeLive, openFile, startCamera } from './sources'
+import type { Placement } from './doc'
+import { ACCEPT, addCamera, addFiles } from './sources'
 
-export function pickFile(): void {
+/** Open the system file picker and add the chosen files as layers. */
+export function pickFiles(where: Placement = 'above'): void {
   const input = document.createElement('input')
   input.type = 'file'
-  input.accept = 'image/*,video/*,.svg,.json,application/json'
+  input.multiple = true
+  input.accept = ACCEPT
   input.onchange = () => {
-    const f = input.files?.[0]
-    if (f) void openFile(f)
+    if (input.files?.length) void addFiles(input.files, where)
   }
   input.click()
 }
 
-/** Start the camera, or freeze the current frame if it's already running. */
-export async function toggleCamera(facing: 'user' | 'environment' = 'user'): Promise<void> {
-  const s = useApp.getState()
-  if (s.source?.kind === 'camera') {
-    freezeLive()
-    return
-  }
+export async function addCameraLayer(where: Placement = 'above'): Promise<void> {
   try {
-    await startCamera(facing)
-    s.setTab('shape')
+    await addCamera('user', where)
   } catch (err) {
-    s.toast((err as Error).message || 'Camera permission was denied', 'error')
+    useApp.getState().toast((err as Error).message || 'Camera permission was denied', 'error')
   }
 }

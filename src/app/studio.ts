@@ -1,12 +1,14 @@
 import { prepareFrame } from '../anim/animations'
 import { blendFor, composeFrame, type ComposeParams, type Prepared } from '../anim/compose'
+import { PointerTracker } from '../anim/interact'
 import { hexToRgb, proofRgb } from '../engine/color'
-import { cellMetrics, convert } from '../engine/convert'
+import { cellMetrics, convert, lightOnDark } from '../engine/convert'
 import { buildRamp, charsetString } from '../engine/ramp'
 import type { AsciiFrame, RGB, SourceFrame } from '../engine/types'
 import { createRenderer, fitPixelRatio, RenderList, type Layout, type RGBA, type Renderer } from '../render'
-import { useApp, type SourceMeta } from '../state/store'
+import { useApp, type LayerMeta } from '../state/store'
 import { EditLayer } from './edits'
+import { isLive, makeCanvas, runtimes, type LayerRuntime } from './runtime'
 
 export interface ViewInfo {
   cssW: number
@@ -16,42 +18,59 @@ export interface ViewInfo {
 }
 
 const EXTRA_POOL = '01#%&*+=<>/\\|{}[]?!$@'
+/** Longest side of the composite the converter samples from. */
+const COMPOSITE_MAX = 1400
 
 /**
- * The studio owns everything that changes every frame (source pixels, the
- * converted frame, edits, the render loop) so React only re-renders on UI changes.
+ * The studio owns everything that changes every frame — layer pixels, the
+ * composite, the converted frame, glyph edits and the render loop — so React
+ * only re-renders on UI changes.
  */
 export class Studio {
-  source: SourceFrame | null = null
-  video: HTMLVideoElement | null = null
-  private stream: MediaStream | null = null
   base: AsciiFrame | null = null
   frame: AsciiFrame | null = null
   prep: Prepared | null = null
   readonly edits = new EditLayer()
   canvas: HTMLCanvasElement | null = null
   renderer: Renderer | null = null
+  /** Flattened layers at sampling resolution. */
+  readonly composite = makeCanvas(4, 4)
+  compositeScale = 1
   private list = new RenderList()
   animTime = 0
   private lastNow = 0
   private raf = 0
+  private needComposite = true
   private needConvert = true
   private needRender = true
-  private lastConvertAt = 0
-  private lastVideoTime = -1
+  private lastCompositeAt = 0
   private fpsFrames = 0
   private fpsAt = 0
   private statsAt = 0
-  pointer = { x: 0, y: 0, active: false }
+  readonly pointer = new PointerTracker()
   typeCursor: { x: number; y: number } | null = null
+  /** Extra per-frame hooks (recorder, overlays). */
+  private frameHooks = new Set<() => void>()
   private viewport = { w: 800, h: 600 }
   view: ViewInfo | null = null
   private viewListeners = new Set<(v: ViewInfo) => void>()
+  private renderers = new WeakMap<HTMLCanvasElement, Renderer>()
 
   constructor() {
     useApp.subscribe((s, prev) => {
+      if (s.layers !== prev.layers || s.board !== prev.board || s.shape.alphaInk !== prev.shape.alphaInk) this.needComposite = true
+      // Ink-tinted layers depend on the background polarity.
+      if (s.style.background !== prev.style.background || s.style.ink !== prev.style.ink || s.style.colorMode !== prev.style.colorMode)
+        this.needComposite = true
       if (s.shape !== prev.shape || s.style !== prev.style) this.needConvert = true
-      if (s.motion !== prev.motion || s.ui.zoom !== prev.ui.zoom || s.tab !== prev.tab || s.editor !== prev.editor)
+      if (s.glyphLayer.visible !== prev.glyphLayer.visible) this.applyEdits()
+      if (
+        s.motion !== prev.motion ||
+        s.interaction !== prev.interaction ||
+        s.ui.zoom !== prev.ui.zoom ||
+        s.tool !== prev.tool ||
+        s.layers !== prev.layers
+      )
         this.needRender = true
       if (s.motion.animation !== prev.motion.animation) this.animTime = 0
       this.kick()
@@ -61,8 +80,6 @@ export class Studio {
   // -------------------------------------------------------------------------
   // wiring
   // -------------------------------------------------------------------------
-
-  private renderers = new WeakMap<HTMLCanvasElement, Renderer>()
 
   attach(canvas: HTMLCanvasElement): void {
     if (this.canvas === canvas) return
@@ -98,89 +115,147 @@ export class Studio {
     return () => this.viewListeners.delete(cb)
   }
 
-  // -------------------------------------------------------------------------
-  // sources
-  // -------------------------------------------------------------------------
-
-  setSource(src: SourceFrame, meta: SourceMeta, live?: { video: HTMLVideoElement; stream?: MediaStream }): void {
-    this.stopLive()
-    this.source = src
-    this.video = live?.video ?? null
-    this.stream = live?.stream ?? null
-    this.lastVideoTime = -1
-    this.edits.load([])
-    this.typeCursor = null
-    this.needConvert = true
-    useApp.setState({ source: meta, ui: { ...useApp.getState().ui, sheetOpen: true } })
-    this.syncEdits()
+  onFrame(cb: () => void): () => void {
+    this.frameHooks.add(cb)
     this.kick()
+    return () => this.frameHooks.delete(cb)
   }
 
-  /** Swap pixels without resetting edits (live text re-render, etc). */
-  updateSource(src: SourceFrame, meta?: Partial<SourceMeta>): void {
-    this.source = src
-    this.needConvert = true
-    const cur = useApp.getState().source
-    if (cur && meta) useApp.setState({ source: { ...cur, ...meta } })
-    this.kick()
-  }
-
-  stopLive(): void {
-    if (this.stream) for (const t of this.stream.getTracks()) t.stop()
-    if (this.video) {
-      this.video.pause()
-      if (this.video.src.startsWith('blob:')) URL.revokeObjectURL(this.video.src)
-    }
-    this.stream = null
-    this.video = null
-  }
-
-  clearSource(): void {
-    this.stopLive()
-    this.source = null
-    this.base = null
-    this.frame = null
-    this.prep = null
-    this.edits.load([])
-    useApp.setState({ source: null })
-    this.syncEdits()
+  invalidate(what: 'composite' | 'convert' | 'render' = 'convert'): void {
+    if (what === 'composite') this.needComposite = true
+    if (what === 'composite' || what === 'convert') this.needConvert = true
     this.needRender = true
     this.kick()
   }
 
-  /** Freeze the current live frame into a still image. */
-  snapshot(): HTMLCanvasElement | null {
-    if (!this.source) return null
-    const c = document.createElement('canvas')
-    c.width = this.source.width
-    c.height = this.source.height
+  // -------------------------------------------------------------------------
+  // compositing
+  // -------------------------------------------------------------------------
+
+  /** Color that converts to full ink density for the current background. */
+  inkFill(): string {
+    return lightOnDark(useApp.getState().style) ? '#ffffff' : '#000000'
+  }
+
+  hasLiveLayers(): boolean {
+    for (const l of useApp.getState().layers) if (isLive(l, runtimes.get(l.id))) return true
+    return false
+  }
+
+  /** Draw one layer into `ctx` (whose transform maps board px → canvas px). */
+  drawLayer(ctx: CanvasRenderingContext2D, l: LayerMeta, rt: LayerRuntime, ink: string): void {
+    const textInk = l.kind === 'text' && l.text?.fill === 'ink'
+    const tinted = l.tint === 'ink' || textInk
+    let src: CanvasImageSource = rt.el
+    let mirror = !!rt.mirror
+    if (rt.mask || tinted) {
+      const s = Math.min(1, 2048 / Math.max(rt.width, rt.height))
+      const w = Math.max(1, Math.round(rt.width * s))
+      const h = Math.max(1, Math.round(rt.height * s))
+      if (!rt.temp) rt.temp = makeCanvas(w, h)
+      const t = rt.temp
+      if (t.width !== w || t.height !== h) {
+        t.width = w
+        t.height = h
+      }
+      const tc = t.getContext('2d')!
+      tc.setTransform(1, 0, 0, 1, 0, 0)
+      tc.globalCompositeOperation = 'source-over'
+      tc.clearRect(0, 0, w, h)
+      if (mirror) tc.setTransform(-1, 0, 0, 1, w, 0)
+      tc.drawImage(rt.el, 0, 0, w, h)
+      tc.setTransform(1, 0, 0, 1, 0, 0)
+      if (rt.mask) {
+        tc.globalCompositeOperation = 'destination-in'
+        tc.drawImage(rt.mask, 0, 0, w, h)
+      }
+      if (tinted) {
+        tc.globalCompositeOperation = 'source-in'
+        tc.fillStyle = ink
+        tc.fillRect(0, 0, w, h)
+      }
+      tc.globalCompositeOperation = 'source-over'
+      src = t
+      mirror = false
+    }
+    ctx.save()
+    ctx.globalAlpha = l.opacity
+    ctx.globalCompositeOperation = l.blend
+    ctx.translate(l.x, l.y)
+    ctx.rotate(l.rotation)
+    ctx.scale(l.scale * (mirror ? -1 : 1), l.scale)
+    ctx.drawImage(src, -l.width / 2, -l.height / 2, l.width, l.height)
+    ctx.restore()
+  }
+
+  private doComposite(now: number): void {
+    this.needComposite = false
+    this.lastCompositeAt = now
+    const s = useApp.getState()
+    const board = s.board
+    if (!board) return
+    // Live media composites smaller: the converter only samples a few hundred pixels.
+    const max = this.hasLiveLayers() ? 900 : COMPOSITE_MAX
+    const q = Math.min(1, max / Math.max(board.width, board.height))
+    const W = Math.max(1, Math.round(board.width * q))
+    const H = Math.max(1, Math.round(board.height * q))
+    const c = this.composite
+    if (c.width !== W || c.height !== H) {
+      c.width = W
+      c.height = H
+    }
+    this.compositeScale = q
     const ctx = c.getContext('2d')!
-    if (this.source.mirror) ctx.setTransform(-1, 0, 0, 1, c.width, 0)
-    ctx.drawImage(this.source.el, 0, 0, c.width, c.height)
-    return c
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
+    ctx.clearRect(0, 0, W, H)
+    ctx.imageSmoothingQuality = 'high'
+    const ink = this.inkFill()
+    for (const l of s.layers) {
+      if (!l.visible || l.opacity <= 0) continue
+      const rt = runtimes.get(l.id)
+      if (!rt) continue
+      ctx.setTransform(q, 0, 0, q, 0, 0)
+      this.drawLayer(ctx, l, rt, ink)
+    }
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
+    this.needConvert = true
+  }
+
+  private advanceGifs(now: number): void {
+    for (const l of useApp.getState().layers) {
+      const rt = runtimes.get(l.id)
+      if (!rt?.gif || l.playing === false || !l.visible) continue
+      const t = ((now * 1000 * (l.rate ?? 1)) % rt.gif.total + rt.gif.total) % rt.gif.total
+      let i = 0
+      while (i < rt.gif.ends.length - 1 && rt.gif.ends[i] <= t) i++
+      if (rt.el !== rt.gif.frames[i]) {
+        rt.el = rt.gif.frames[i]
+        this.needComposite = true
+      }
+    }
   }
 
   // -------------------------------------------------------------------------
   // conversion
   // -------------------------------------------------------------------------
 
-  invalidate(convert = true): void {
-    if (convert) this.needConvert = true
-    this.needRender = true
-    this.kick()
-  }
-
   private doConvert(): void {
     this.needConvert = false
-    if (!this.source) {
+    const s = useApp.getState()
+    if (!s.board) {
       this.base = null
       this.frame = null
       this.prep = null
       return
     }
-    const s = useApp.getState()
+    const src: SourceFrame = {
+      el: this.composite,
+      width: this.composite.width,
+      height: this.composite.height,
+      mask: s.shape.alphaInk,
+    }
     try {
-      this.base = convert(this.source, s.shape, s.style)
+      this.base = convert(src, s.shape, s.style)
     } catch (err) {
       console.error(err)
       return
@@ -188,20 +263,22 @@ export class Studio {
     this.applyEdits()
   }
 
-  /** Re-apply the edit overlay to the generated frame. */
+  /** Re-apply the glyph layer to the generated frame. */
   applyEdits(): void {
     if (!this.base) return
     const s = useApp.getState()
-    this.frame = this.edits.apply(this.base)
+    this.frame = s.glyphLayer.visible ? this.edits.apply(this.base) : this.base
     const ramp = buildRamp(charsetString(s.shape), s.style.weight, s.shape.keepOrder)
     const pool = Array.from(ramp.chars)
     if (pool.filter((c) => c !== 32).length < 6) for (const ch of EXTRA_POOL) pool.push(ch.codePointAt(0)!)
     this.prep = prepareFrame(this.frame, ramp.chars, pool)
     this.needRender = true
+    this.kick()
   }
 
   syncEdits(): void {
-    useApp.setState({ edits: { count: this.edits.size, canUndo: this.edits.canUndo, canRedo: this.edits.canRedo } })
+    const g = useApp.getState().glyphLayer
+    if (g.count !== this.edits.size) useApp.setState({ glyphLayer: { ...g, count: this.edits.size } })
   }
 
   // -------------------------------------------------------------------------
@@ -241,7 +318,9 @@ export class Studio {
     const s = useApp.getState()
     const { w, h } = cellMetrics(s.style)
     const preview = !!opts.preview
-    const typing = preview && s.tab === 'edit' && s.editor.tool === 'type' && this.typeCursor
+    const now = performance.now() / 1000
+    const interactive = preview && s.tool === 'interact' && s.interaction.mode !== 'off' && !!this.frame
+    const typing = preview && s.tool === 'text' && this.typeCursor
     return {
       animation: s.motion.animation,
       intensity: s.motion.intensity,
@@ -250,10 +329,7 @@ export class Studio {
       background: hexToRgb(s.style.background),
       aspect: w / h,
       still: opts.still,
-      magnet:
-        preview && s.motion.magnet && this.pointer.active
-          ? { x: this.pointer.x, y: this.pointer.y, strength: 0.4 + s.motion.intensity * 0.6 }
-          : null,
+      interaction: interactive ? this.pointer.state(now, s.interaction, this.frame!.cols, this.frame!.rows) : null,
       cursor:
         typing && (performance.now() / 530) % 2 < 1.2
           ? { x: this.typeCursor!.x, y: this.typeCursor!.y, color: hexToRgb(s.ui.accent) }
@@ -289,18 +365,15 @@ export class Studio {
     const ch = `${view.cssH}px`
     if (canvas.style.width !== cw) canvas.style.width = cw
     if (canvas.style.height !== ch) canvas.style.height = ch
-    if (
+    const changed =
       !this.view ||
       this.view.cssW !== view.cssW ||
       this.view.cssH !== view.cssH ||
       this.view.layout.cols !== view.layout.cols ||
       this.view.layout.rows !== view.layout.rows ||
       this.view.layout.pad !== view.layout.pad
-    ) {
-      this.view = view
-      for (const cb of this.viewListeners) cb(view)
-    }
     this.view = view
+    if (changed) for (const cb of this.viewListeners) cb(view)
     const params = this.composeParams({ preview: true })
     composeFrame(this.list, frame, prep, this.animTime, params)
     renderer.render(this.list, this.backgroundRGBA(), blendFor(params.animation))
@@ -320,20 +393,19 @@ export class Studio {
       this.animTime += dt * s.motion.speed
       this.needRender = true
     }
-    const v = this.video
-    const live = !!v && !v.paused && v.readyState >= 2
-    if (live && now - this.lastConvertAt > 30 && v!.currentTime !== this.lastVideoTime) {
-      this.lastVideoTime = v!.currentTime
-      this.lastConvertAt = now
-      this.needConvert = true
-    }
+    this.advanceGifs(now / 1000)
+    const live = this.hasLiveLayers()
+    if (live && now - this.lastCompositeAt > 30) this.needComposite = true
+    if (this.needComposite) this.doComposite(now)
     if (this.needConvert) this.doConvert()
-    const magnet = s.motion.magnet && this.pointer.active
-    const typing = s.tab === 'edit' && s.editor.tool === 'type' && !!this.typeCursor
-    if (this.needRender || magnet || typing) {
+    const interactive = s.tool === 'interact' && s.interaction.mode !== 'off' && this.pointer.busy(now / 1000)
+    const typing = s.tool === 'text' && !!this.typeCursor
+    const hooks = this.frameHooks.size > 0
+    if (this.needRender || interactive || typing || hooks) {
       this.render()
       this.fpsFrames++
     }
+    for (const cb of this.frameHooks) cb()
     if (now - this.fpsAt > 1000) {
       const fps = Math.round((this.fpsFrames * 1000) / (now - this.fpsAt || 1))
       this.fpsFrames = 0
@@ -342,7 +414,8 @@ export class Studio {
     } else if (now - this.statsAt > 300 && this.frame) {
       this.publishStats(useApp.getState().stats.fps)
     }
-    if (animating || live || magnet || typing || !!v) this.kick()
+    const gifs = s.layers.some((l) => runtimes.get(l.id)?.gif && l.playing !== false && l.visible)
+    if (animating || live || interactive || typing || hooks || gifs) this.kick()
     else this.lastNow = 0
   }
 
@@ -350,7 +423,8 @@ export class Studio {
     this.statsAt = performance.now()
     const f = this.frame
     const prev = useApp.getState().stats
-    const glyphCount = this.prep ? this.prep.blank.length - countOnes(this.prep.blank) : 0
+    let glyphCount = 0
+    if (this.prep) for (let i = 0; i < this.prep.blank.length; i++) glyphCount += this.prep.blank[i] ? 0 : 1
     const next = {
       cols: f?.cols ?? 0,
       rows: f?.rows ?? 0,
@@ -368,23 +442,51 @@ export class Studio {
       useApp.setState({ stats: next })
   }
 
-  /** Map a client point to a cell coordinate (fractional). */
+  // -------------------------------------------------------------------------
+  // coordinates
+  // -------------------------------------------------------------------------
+
+  /** Client point → board pixels (null before the first render). */
+  clientToBoard(clientX: number, clientY: number): { x: number; y: number } | null {
+    const c = this.canvas
+    const v = this.view
+    const board = useApp.getState().board
+    if (!c || !v || !board) return null
+    const r = c.getBoundingClientRect()
+    const l = v.layout
+    const tw = l.cols + 2 * l.pad
+    const th = l.rows + 2 * l.pad
+    const ax = r.left + (l.pad / tw) * r.width
+    const ay = r.top + (l.pad / th) * r.height
+    const aw = (l.cols / tw) * r.width
+    const ah = (l.rows / th) * r.height
+    return { x: ((clientX - ax) / aw) * board.width, y: ((clientY - ay) / ah) * board.height }
+  }
+
+  /** Client point → cell coordinates (fractional). */
   clientToCell(clientX: number, clientY: number): { x: number; y: number } | null {
+    const b = this.clientToBoard(clientX, clientY)
+    return b ? this.boardToCell(b.x, b.y) : null
+  }
+
+  boardToCell(x: number, y: number): { x: number; y: number } | null {
+    const board = useApp.getState().board
+    const f = this.frame
+    if (!board || !f) return null
+    return { x: (x / board.width) * f.cols, y: (y / board.height) * f.rows }
+  }
+
+  /** The art area (board) in client coordinates. */
+  artRect(): DOMRect | null {
     const c = this.canvas
     const v = this.view
     if (!c || !v) return null
     const r = c.getBoundingClientRect()
     const l = v.layout
-    const x = ((clientX - r.left) / r.width) * (l.cols + 2 * l.pad) - l.pad
-    const y = ((clientY - r.top) / r.height) * (l.rows + 2 * l.pad) - l.pad
-    return { x, y }
+    const tw = l.cols + 2 * l.pad
+    const th = l.rows + 2 * l.pad
+    return new DOMRect(r.left + (l.pad / tw) * r.width, r.top + (l.pad / th) * r.height, (l.cols / tw) * r.width, (l.rows / th) * r.height)
   }
-}
-
-function countOnes(a: Uint8Array): number {
-  let n = 0
-  for (let i = 0; i < a.length; i++) n += a[i]
-  return n
 }
 
 export const studio = new Studio()

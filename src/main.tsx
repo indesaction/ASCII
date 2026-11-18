@@ -9,7 +9,7 @@ import { studio } from './app/studio'
 import { useApp } from './state/store'
 
 // Glyph metrics depend on the bundled font: re-convert once it is ready.
-void loadFonts().then(() => studio.invalidate(true))
+void loadFonts().then(() => studio.invalidate('composite'))
 
 if (import.meta.env.DEV) {
   // Handy for debugging and scripted browser tests.

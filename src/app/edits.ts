@@ -45,15 +45,16 @@ export class EditLayer {
     this.stroke.clear()
   }
 
-  end(): void {
-    if (!this.stroke) return
+  /** Close the stroke. Returns true when it changed something (one undo step was added). */
+  end(): boolean {
+    if (!this.stroke) return false
     const changes = [...this.stroke.values()].filter((c) => !same(c.before, c.after))
     this.stroke = null
-    if (changes.length) {
-      this.undoStack.push(changes)
-      if (this.undoStack.length > 200) this.undoStack.shift()
-      this.redoStack = []
-    }
+    if (!changes.length) return false
+    this.undoStack.push(changes)
+    if (this.undoStack.length > 200) this.undoStack.shift()
+    this.redoStack = []
+    return true
   }
 
   get(x: number, y: number): CellEdit | undefined {

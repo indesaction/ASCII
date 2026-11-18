@@ -4,6 +4,7 @@
  */
 import { prepareFrame } from '../anim/animations'
 import { blendFor, composeFrame } from '../anim/compose'
+import { PointerTracker } from '../anim/interact'
 import { hexToRgb } from '../engine/color'
 import { FONT_ADVANCE, FONT_FAMILY, toCodepoints } from '../engine/glyphs'
 import type { AsciiFrame } from '../engine/types'
@@ -39,7 +40,8 @@ async function main(): Promise<void> {
   const host = document.getElementById('ascii-root') ?? document.body
   const canvas = document.createElement('canvas')
   canvas.style.display = 'block'
-  canvas.style.touchAction = d.motion.magnet ? 'none' : 'auto'
+  const interactive = d.interaction.mode !== 'off'
+  canvas.style.touchAction = interactive ? 'none' : 'auto'
   host.appendChild(canvas)
   const renderer = createRenderer(canvas)
   const st = d.style
@@ -62,7 +64,7 @@ async function main(): Promise<void> {
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches
   const animated = d.motion.animation !== 'none' && !reduce
   const list = new RenderList()
-  const pointer = { x: 0, y: 0, active: false }
+  const pointer = new PointerTracker()
   let dirty = true
 
   const fit = () => {
@@ -80,18 +82,27 @@ async function main(): Promise<void> {
   window.addEventListener('resize', fit)
   fit()
 
-  if (d.motion.magnet) {
-    const move = (e: PointerEvent) => {
+  if (interactive) {
+    const toCell = (e: PointerEvent) => {
       const r = canvas.getBoundingClientRect()
-      pointer.x = ((e.clientX - r.left) / r.width) * (d.cols + 2 * st.padding) - st.padding
-      pointer.y = ((e.clientY - r.top) / r.height) * (d.rows + 2 * st.padding) - st.padding
-      pointer.active = true
-      dirty = true
+      return {
+        x: ((e.clientX - r.left) / r.width) * (d.cols + 2 * st.padding) - st.padding,
+        y: ((e.clientY - r.top) / r.height) * (d.rows + 2 * st.padding) - st.padding,
+      }
     }
-    canvas.addEventListener('pointermove', move)
-    canvas.addEventListener('pointerdown', move)
+    canvas.addEventListener('pointermove', (e) => {
+      const c = toCell(e)
+      pointer.move(c.x, c.y, performance.now() / 1000)
+      dirty = true
+    })
+    canvas.addEventListener('pointerdown', (e) => {
+      const c = toCell(e)
+      pointer.press(c.x, c.y, performance.now() / 1000)
+      dirty = true
+    })
+    canvas.addEventListener('pointerup', () => pointer.release())
     canvas.addEventListener('pointerleave', () => {
-      pointer.active = false
+      pointer.leave()
       dirty = true
     })
   }
@@ -114,11 +125,13 @@ async function main(): Promise<void> {
       time += dt * d.motion.speed
       dirty = true
     }
+    const t = now / 1000
+    if (interactive && pointer.busy(t)) dirty = true
     if (dirty) {
       dirty = false
       composeFrame(list, frame, prep, time, {
         ...params,
-        magnet: pointer.active ? { x: pointer.x, y: pointer.y, strength: 0.4 + d.motion.intensity * 0.6 } : null,
+        interaction: interactive ? pointer.state(t, d.interaction, d.cols, d.rows) : null,
       })
       renderer.render(list, bg, blendFor(params.animation, params.still))
     }

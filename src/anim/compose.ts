@@ -2,7 +2,8 @@ import { proofRgb } from '../engine/color'
 import { FULL_BLOCK } from '../engine/glyphs'
 import type { AsciiFrame, RGB } from '../engine/types'
 import { RenderList, glyphs } from '../render/list'
-import { applyMagnet, emitStatic, getAnimation, type AnimCtx, type prepareFrame } from './animations'
+import { emitStatic, getAnimation, type AnimCtx, type prepareFrame } from './animations'
+import { applyInteraction, type InteractionState } from './interact'
 
 export type Prepared = ReturnType<typeof prepareFrame>
 
@@ -17,7 +18,7 @@ export interface ComposeParams {
   aspect: number
   /** Render the still image even if an animation is selected. */
   still?: boolean
-  magnet?: { x: number; y: number; strength: number } | null
+  interaction?: InteractionState | null
   cursor?: { x: number; y: number; color: RGB } | null
   proof?: boolean
 }
@@ -48,7 +49,7 @@ export function composeFrame(list: RenderList, frame: AsciiFrame, prep: Prepared
     const [r, g, b] = o.cursor.color
     list.push(o.cursor.x, o.cursor.y, glyphs.index(FULL_BLOCK), 1, 0, r, g, b, 150)
   }
-  if (o.magnet) applyMagnet(list, o.magnet.x, o.magnet.y, o.aspect, o.magnet.strength, o.highlight)
+  if (o.interaction) applyInteraction(list, o.interaction, o.aspect, o.highlight, frame.cols, frame.rows)
   if (o.proof) {
     const c = list.color
     for (let i = 0; i < list.count; i++) {

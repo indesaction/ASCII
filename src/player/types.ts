@@ -1,3 +1,5 @@
+import type { InteractionSettings } from '../engine/types'
+
 /** Data embedded in an exported "web embed" HTML file. */
 export interface PlayerData {
   v: 1
@@ -28,8 +30,8 @@ export interface PlayerData {
     intensity: number
     duration: number
     highlight: string
-    magnet: boolean
   }
+  interaction: InteractionSettings
   /** Base64 WOFF of the monospace font, if embedded. */
   font?: string
 }

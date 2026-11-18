@@ -66,8 +66,8 @@ export async function exportVideo(opts: VideoOptions, onProgress: (p: number) =>
   const fmt = videoFormat()
   if (!fmt) throw new Error('Video recording is not supported in this browser.')
   const { frame, prep, motion } = snapshot()
-  const live = !!studio.video
-  if (!live && motion.animation === 'none') throw new Error('Choose an animation (or use a video/camera source) first.')
+  const live = studio.hasLiveLayers()
+  if (!live && motion.animation === 'none') throw new Error('Choose an animation, or add a video or camera layer, first.')
 
   let canvas: HTMLCanvasElement
   let renderOffscreen: ((elapsed: number) => void) | null = null

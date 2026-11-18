@@ -1,31 +1,29 @@
-import { useEffect, useState, type ReactNode } from 'react'
-import { redo, undo } from './app/editor'
-import { openFile } from './app/sources'
-import { ACCENTS, useApp, type Tab } from './state/store'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { addFiles } from './app/sources'
+import { rememberToolForPick, redo, undo } from './app/tools'
 import { contrastText } from './engine/color'
+import { ACCENTS, useApp, type Tab } from './state/store'
+import { Board } from './ui/Board'
+import { TOOLS } from './ui/catalog'
 import { ExportSheet } from './ui/ExportSheet'
 import { I } from './ui/icons'
-import { EditPanel } from './ui/panels/EditPanel'
-import { TOOLS } from './ui/tools'
+import { LayersPanel } from './ui/panels/LayersPanel'
 import { MotionPanel } from './ui/panels/MotionPanel'
 import { ShapePanel } from './ui/panels/ShapePanel'
-import { SourcePanel } from './ui/panels/SourcePanel'
 import { StylePanel } from './ui/panels/StylePanel'
-import { Stage } from './ui/Stage'
 
 const TABS: { id: Tab; name: string; icon: ReactNode }[] = [
-  { id: 'source', name: 'Source', icon: <I.Source /> },
+  { id: 'layers', name: 'Layers', icon: <I.Layers /> },
   { id: 'shape', name: 'Shape', icon: <I.Shape /> },
   { id: 'style', name: 'Style', icon: <I.Style /> },
   { id: 'motion', name: 'Motion', icon: <I.Motion /> },
-  { id: 'edit', name: 'Edit', icon: <I.Edit /> },
 ]
 
 function TopBar() {
   const title = useApp((s) => s.title)
   const ui = useApp((s) => s.ui)
   const setUi = useApp((s) => s.setUi)
-  const hasSource = useApp((s) => !!s.source)
+  const hasArt = useApp((s) => !!s.board)
   return (
     <header className="topbar">
       <div className="brand" aria-label="ASCII Atelier">
@@ -33,7 +31,7 @@ function TopBar() {
         <span className="brand-serif">Atelier</span>
         <i className="brand-dot" />
       </div>
-      {hasSource && (
+      {hasArt && (
         <input
           className="title-input"
           value={title}
@@ -61,12 +59,12 @@ function TopBar() {
         <button
           type="button"
           className="icon-btn"
-          aria-label="Toggle dark mode"
+          aria-label={ui.theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
           onClick={() => setUi({ theme: ui.theme === 'dark' ? 'light' : 'dark' })}
         >
           {ui.theme === 'dark' ? <I.Sun /> : <I.Moon />}
         </button>
-        <button type="button" className="btn primary" aria-label="Export" disabled={!hasSource} onClick={() => setUi({ exportOpen: true })}>
+        <button type="button" className="btn primary" aria-label="Export" disabled={!hasArt} onClick={() => setUi({ exportOpen: true })}>
           <I.Download /> <span className="hide-xs">Export</span>
         </button>
       </div>
@@ -77,8 +75,9 @@ function TopBar() {
 function Tabs({ className }: { className: string }) {
   const tab = useApp((s) => s.tab)
   const setTab = useApp((s) => s.setTab)
-  const sheetOpen = useApp((s) => s.ui.sheetOpen)
+  const sheet = useApp((s) => s.ui.sheet)
   const setUi = useApp((s) => s.setUi)
+  const mobile = className.includes('tabbar')
   return (
     <nav className={className} role="tablist">
       {TABS.map((t) => (
@@ -89,10 +88,10 @@ function Tabs({ className }: { className: string }) {
           aria-selected={tab === t.id}
           className={tab === t.id ? 'on' : ''}
           onClick={() => {
-            if (tab === t.id && className.includes('tabbar')) setUi({ sheetOpen: !sheetOpen })
+            if (mobile && tab === t.id) setUi({ sheet: sheet ? 0 : 1 })
             else {
               setTab(t.id)
-              setUi({ sheetOpen: true })
+              if (mobile && !sheet) setUi({ sheet: 1 })
             }
           }}
         >
@@ -104,15 +103,48 @@ function Tabs({ className }: { className: string }) {
   )
 }
 
+/** Drag the handle to resize the mobile sheet between its snap points. */
+function SheetHandle() {
+  const setUi = useApp((s) => s.setUi)
+  const start = useRef<{ y: number; sheet: number } | null>(null)
+  return (
+    <div
+      className="sheet-handle"
+      role="slider"
+      aria-label="Resize controls"
+      aria-valuemin={0}
+      aria-valuemax={2}
+      aria-valuenow={useApp.getState().ui.sheet}
+      tabIndex={0}
+      onKeyDown={(e) => {
+        const s = useApp.getState().ui.sheet
+        if (e.key === 'ArrowUp') setUi({ sheet: Math.min(2, s + 1) as 0 | 1 | 2 })
+        if (e.key === 'ArrowDown') setUi({ sheet: Math.max(0, s - 1) as 0 | 1 | 2 })
+      }}
+      onPointerDown={(e) => {
+        e.currentTarget.setPointerCapture(e.pointerId)
+        start.current = { y: e.clientY, sheet: useApp.getState().ui.sheet }
+      }}
+      onPointerUp={(e) => {
+        const st = start.current
+        start.current = null
+        if (!st) return
+        const dy = e.clientY - st.y
+        if (Math.abs(dy) < 8) setUi({ sheet: st.sheet === 2 ? 1 : 2 })
+        else setUi({ sheet: Math.max(0, Math.min(2, st.sheet + (dy < 0 ? 1 : -1))) as 0 | 1 | 2 })
+      }}
+    />
+  )
+}
+
 function Panel() {
   const tab = useApp((s) => s.tab)
   return (
     <div className="panel-body" key={tab}>
-      {tab === 'source' && <SourcePanel />}
+      {tab === 'layers' && <LayersPanel />}
       {tab === 'shape' && <ShapePanel />}
       {tab === 'style' && <StylePanel />}
       {tab === 'motion' && <MotionPanel />}
-      {tab === 'edit' && <EditPanel />}
     </div>
   )
 }
@@ -147,7 +179,7 @@ function Busy() {
   )
 }
 
-function isTyping(e: KeyboardEvent): boolean {
+function isTyping(e: Event): boolean {
   const t = e.target as HTMLElement | null
   if (!t) return false
   return t.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName)
@@ -156,7 +188,7 @@ function isTyping(e: KeyboardEvent): boolean {
 export default function App() {
   const theme = useApp((s) => s.ui.theme)
   const accent = useApp((s) => s.ui.accent)
-  const sheetOpen = useApp((s) => s.ui.sheetOpen)
+  const sheet = useApp((s) => s.ui.sheet)
   const tab = useApp((s) => s.tab)
   const [dragging, setDragging] = useState(false)
 
@@ -169,7 +201,7 @@ export default function App() {
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#0f0f0e' : '#f3f0ea')
   }, [theme, accent])
 
-  // Drag & drop + paste anywhere
+  // Drag & drop + paste add layers
   useEffect(() => {
     let depth = 0
     const hasFiles = (e: DragEvent) => !!e.dataTransfer && [...e.dataTransfer.types].includes('Files')
@@ -191,15 +223,14 @@ export default function App() {
       e.preventDefault()
       depth = 0
       setDragging(false)
-      const f = e.dataTransfer?.files[0]
-      if (f) void openFile(f)
+      if (e.dataTransfer?.files.length) void addFiles(e.dataTransfer.files)
     }
     const paste = (e: ClipboardEvent) => {
-      if (isTyping(e as unknown as KeyboardEvent)) return
-      const f = [...(e.clipboardData?.files ?? [])][0]
-      if (f) {
+      if (isTyping(e)) return
+      const files = [...(e.clipboardData?.files ?? [])]
+      if (files.length) {
         e.preventDefault()
-        void openFile(f)
+        void addFiles(files)
       }
     }
     window.addEventListener('dragenter', enter)
@@ -222,20 +253,21 @@ export default function App() {
       if (isTyping(e)) return
       const mod = e.metaKey || e.ctrlKey
       const s = useApp.getState()
-      if (mod && e.key.toLowerCase() === 'z') {
+      const k = e.key.toLowerCase()
+      if (mod && k === 'z') {
         e.preventDefault()
         if (e.shiftKey) redo()
         else undo()
         return
       }
-      if (mod && e.key.toLowerCase() === 'y') {
+      if (mod && k === 'y') {
         e.preventDefault()
         redo()
         return
       }
-      if (mod && e.key.toLowerCase() === 'e') {
+      if (mod && k === 'e') {
         e.preventDefault()
-        if (s.source) s.setUi({ exportOpen: true })
+        if (s.board) s.setUi({ exportOpen: true })
         return
       }
       if (mod || e.altKey) return
@@ -244,9 +276,15 @@ export default function App() {
         s.setMotion({ playing: !s.motion.playing })
         return
       }
-      if (s.tab === 'edit') {
-        const tool = TOOLS.find((t) => t.key.toLowerCase() === e.key.toLowerCase())
-        if (tool) s.setEditor({ tool: tool.id })
+      if (e.key === '[' || e.key === ']') {
+        const f = e.key === ']' ? 1.2 : 1 / 1.2
+        s.setBrush({ size: Math.round(Math.max(2, Math.min(400, s.brush.size * f))) })
+        return
+      }
+      const tool = TOOLS.find((t) => t.key.toLowerCase() === k)
+      if (tool && s.board) {
+        rememberToolForPick(s.tool)
+        s.setTool(tool.id)
       }
     }
     window.addEventListener('keydown', onKey)
@@ -254,12 +292,13 @@ export default function App() {
   }, [])
 
   return (
-    <div className={`app ${sheetOpen ? 'sheet-open' : 'sheet-closed'}`} data-tab={tab}>
+    <div className={`app sheet-${sheet}`} data-tab={tab}>
       <TopBar />
       <main className="main">
-        <Stage />
+        <Board />
       </main>
       <aside className="panel" aria-label="Controls">
+        <SheetHandle />
         <Tabs className="tabs" />
         <Panel />
       </aside>
@@ -272,7 +311,7 @@ export default function App() {
           <div>
             <I.Upload size={32} />
             <p>
-              Drop to <em>set in type</em>
+              Drop to add <em>a new layer</em>
             </p>
           </div>
         </div>

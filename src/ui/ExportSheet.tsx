@@ -23,7 +23,7 @@ const FORMATS: { id: Fmt; name: string; tag: string; desc: string }[] = [
   { id: 'txt', name: 'Text', tag: '.txt', desc: 'Plain characters for chats, code and READMEs' },
   { id: 'html', name: 'HTML', tag: 'Color', desc: 'Colored <pre> page' },
   { id: 'ansi', name: 'ANSI', tag: 'Terminal', desc: '24-bit color escape codes for terminals' },
-  { id: 'project', name: 'Project', tag: '.json', desc: 'Settings, source and edits — reopen later' },
+  { id: 'project', name: 'Project', tag: '.json', desc: 'Every layer, setting and glyph — reopen later' },
 ]
 
 const COPYABLE: Fmt[] = ['png', 'txt', 'html', 'ansi', 'svg']
@@ -65,7 +65,7 @@ export function ExportSheet() {
   const setUi = useApp((s) => s.setUi)
   const style = useApp((s) => s.style)
   const motion = useApp((s) => s.motion)
-  const source = useApp((s) => s.source)
+  const interactionMode = useApp((s) => s.interaction.mode)
   const stats = useApp((s) => s.stats)
   const [fmt, setFmt] = useState<Fmt>('png')
   const [png, setPng] = useState({ scale: 3, transparent: false, animationFrame: false })
@@ -86,6 +86,8 @@ export function ExportSheet() {
   const vf = useMemo(() => (open ? videoFormat() : null), [open])
 
   if (!open) return null
+
+  const live = studio.hasLiveLayers()
 
   const colors = fmt === 'pdf' ? topColors() : []
   const { w: cw, h: ch } = cellMetrics(style)
@@ -203,8 +205,8 @@ export function ExportSheet() {
     svg: `${Math.round(artW)} × ${Math.round(artH)} units`,
     pdf: pdf.page === 'Fit' ? 'Page fits the artwork' : `${pdf.page} · ${PAGE_SIZES[pdf.page as Exclude<PageSize, 'Fit'>].join(' × ')} mm`,
     gif: animated ? `${Math.max(2, Math.round(loopSec * gif.fps))} frames · ${loopSec.toFixed(1)} s loop` : 'Pick an animation in Motion first',
-    video: vf ? `${vf.ext.toUpperCase()} · ${source?.live ? `${video.loops}s live capture` : `${(loopSec * video.loops).toFixed(1)} s`}` : 'Not supported in this browser',
-    embed: `${embedFont ? '~95 KB font embedded' : 'Uses system monospace'} · ${motion.magnet ? 'interactive' : 'autoplay'}`,
+    video: vf ? `${vf.ext.toUpperCase()} · ${live ? `${video.loops}s live capture` : `${(loopSec * video.loops).toFixed(1)} s`}` : 'Not supported in this browser',
+    embed: `${embedFont ? '~95 KB font embedded' : 'Uses system monospace'} · ${interactionMode !== 'off' ? 'interactive' : 'autoplay'}`,
     txt: `${stats.cols} × ${stats.rows} characters`,
     html: 'Standalone page',
     ansi: 'Run cat on the file in a truecolor terminal',
@@ -356,17 +358,17 @@ export function ExportSheet() {
             {fmt === 'video' && (
               <Section title="Recording">
                 <Segmented label="Frame rate" value={video.fps} onChange={(fps) => setVideo({ ...video, fps })} options={[24, 30, 60].map((v) => ({ value: v, label: `${v}` }))} />
-                {!source?.live && (
+                {!live && (
                   <Slider label="Scale" value={video.scale} min={1} max={3} step={0.5} onChange={(scale) => setVideo({ ...video, scale })} format={(v) => `${v}×`} />
                 )}
                 <Slider
-                  label={source?.live ? 'Length' : 'Loops'}
+                  label={live ? 'Length' : 'Loops'}
                   value={video.loops}
                   min={1}
-                  max={source?.live ? 30 : 6}
+                  max={live ? 30 : 6}
                   step={1}
                   onChange={(loops) => setVideo({ ...video, loops })}
-                  format={(v) => (source?.live ? `${v}s` : `${v}×`)}
+                  format={(v) => (live ? `${v}s` : `${v}×`)}
                 />
                 <Hint>Recording runs in real time — keep this tab visible until it finishes.</Hint>
               </Section>
@@ -376,7 +378,7 @@ export function ExportSheet() {
               <Section title="Embed">
                 <Toggle label="Embed the font" hint="Pixel-identical everywhere (+~95 KB)" checked={embedFont} onChange={setEmbedFont} />
                 <Hint>
-                  A single HTML file with the animation{motion.magnet ? ' and the magnetic cursor' : ''}. Host it, or drop it into an
+                  A single HTML file with the animation{interactionMode !== 'off' ? ' and your pointer effect' : ''}. Host it, or drop it into an
                   iframe. Respects reduced-motion preferences.
                 </Hint>
               </Section>
@@ -403,7 +405,7 @@ export function ExportSheet() {
               <button
                 type="button"
                 className="btn primary"
-                disabled={(fmt === 'gif' && !animated) || (fmt === 'video' && (!vf || (!animated && !source?.live)))}
+                disabled={(fmt === 'gif' && !animated) || (fmt === 'video' && (!vf || (!animated && !live)))}
                 onClick={() => void run('download')}
               >
                 <I.Download /> Download

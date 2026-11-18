@@ -239,4 +239,61 @@ export const I = {
       <rect x="6" y="6" width="12" height="12" fill="currentColor" />
     </Svg>
   ),
+  Move: (p: P) => (
+    <Svg {...p}>
+      <path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3" />
+    </Svg>
+  ),
+  Stamp: (p: P) => (
+    <Svg {...p}>
+      <path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6z" />
+      <path d="M5 20h14" />
+    </Svg>
+  ),
+  Layers: (p: P) => (
+    <Svg {...p}>
+      <path d="M12 3l9 5-9 5-9-5z" />
+      <path d="M3 13l9 5 9-5" />
+    </Svg>
+  ),
+  EyeOff: (p: P) => (
+    <Svg {...p}>
+      <path d="M3 3l18 18M10.6 6.1A9.8 9.8 0 0 1 12 6c6 0 9.5 6 9.5 6a17 17 0 0 1-3 3.6M6.4 7.6A16.7 16.7 0 0 0 2.5 12S6 18 12 18a9.6 9.6 0 0 0 4.2-1" />
+      <path d="M9.9 10a3 3 0 0 0 4.1 4.1" />
+    </Svg>
+  ),
+  Up: (p: P) => (
+    <Svg {...p}>
+      <path d="M12 19V5M6 11l6-6 6 6" />
+    </Svg>
+  ),
+  Down: (p: P) => (
+    <Svg {...p}>
+      <path d="M12 5v14M6 13l6 6 6-6" />
+    </Svg>
+  ),
+  Duplicate: (p: P) => (
+    <Svg {...p}>
+      <rect x="8" y="8" width="12" height="12" rx="1" />
+      <path d="M4 16V5a1 1 0 0 1 1-1h11" />
+    </Svg>
+  ),
+  Rec: (p: P) => (
+    <Svg {...p}>
+      <circle cx="12" cy="12" r="6" fill="currentColor" stroke="none" />
+    </Svg>
+  ),
+  Blank: (p: P) => (
+    <Svg {...p}>
+      <rect x="4.5" y="4.5" width="15" height="15" rx="1" />
+      <path d="M8 16c2-4 4-6 8-8" />
+    </Svg>
+  ),
+  More: (p: P) => (
+    <Svg {...p}>
+      <circle cx="5" cy="12" r="1.2" fill="currentColor" />
+      <circle cx="12" cy="12" r="1.2" fill="currentColor" />
+      <circle cx="19" cy="12" r="1.2" fill="currentColor" />
+    </Svg>
+  ),
 }

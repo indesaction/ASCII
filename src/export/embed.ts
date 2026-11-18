@@ -2,15 +2,17 @@ import { fontUrl } from '../app/fonts'
 import { buildRamp, charsetString } from '../engine/ramp'
 import type { PlayerData } from '../player/types'
 import { bytesToB64 } from '../util/base64'
+import { useApp } from '../state/store'
 import { escapeXml, snapshot } from './common'
 
 export interface EmbedOptions {
   embedFont: boolean
 }
 
-/** A single self-contained HTML file that plays the animation (and magnet) anywhere. */
+/** A single self-contained HTML file that plays the animation (and pointer effect) anywhere. */
 export async function exportEmbed(opts: EmbedOptions): Promise<Blob> {
   const { frame, shape, style, motion, title } = snapshot()
+  const interaction = useApp.getState().interaction
   const { default: player } = await import('../generated/player.js?raw')
   let chars = ''
   for (let i = 0; i < frame.chars.length; i++) chars += String.fromCodePoint(frame.chars[i] || 32)
@@ -44,8 +46,9 @@ export async function exportEmbed(opts: EmbedOptions): Promise<Blob> {
       intensity: motion.intensity,
       duration: motion.duration,
       highlight: motion.highlight,
-      magnet: motion.magnet,
     },
+    // The lens needs the original pixels, which embeds don't carry: use a spotlight instead.
+    interaction: { ...interaction, mode: interaction.mode === 'lens' ? 'spotlight' : interaction.mode },
   }
   if (opts.embedFont) {
     const buf = await fetch(fontUrl(style.weight)).then((r) => r.arrayBuffer())

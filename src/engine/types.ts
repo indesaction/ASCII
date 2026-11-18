@@ -24,6 +24,8 @@ export interface ShapeSettings {
   phrase: string
   phraseShading: 'opacity' | 'threshold'
   threshold: number
+  /** Ink follows transparency only (logos, icons, text), ignoring brightness. */
+  alphaInk: boolean
 }
 
 export interface StyleSettings {
@@ -53,7 +55,16 @@ export interface MotionSettings {
   intensity: number
   duration: number
   highlight: string
-  magnet: boolean
+}
+
+export type InteractionMode = 'off' | 'repel' | 'attract' | 'swirl' | 'lens' | 'ripple' | 'burst' | 'spotlight' | 'trail' | 'tilt'
+
+export interface InteractionSettings {
+  mode: InteractionMode
+  /** 0..1 */
+  strength: number
+  /** Radius of influence, in cells. */
+  radius: number
 }
 
 /**

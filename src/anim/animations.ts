@@ -2,7 +2,7 @@ import { hslToRgb } from '../engine/color'
 import { FULL_BLOCK } from '../engine/glyphs'
 import type { AsciiFrame, RGB } from '../engine/types'
 import { isBlank } from '../engine/types'
-import { GEOM_STRIDE, type Blend, type RenderList, glyphs } from '../render/list'
+import { type Blend, type RenderList, glyphs } from '../render/list'
 
 export interface AnimCtx {
   f: AsciiFrame
@@ -56,14 +56,6 @@ export function hash2(a: number, b: number): number {
 const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v)
 const easeOutExpo = (t: number) => (t >= 1 ? 1 : 1 - Math.pow(2, -10 * t))
 const easeInExpo = (t: number) => (t <= 0 ? 0 : Math.pow(2, 10 * t - 10))
-const easeOutBounce = (t: number) => {
-  const n1 = 7.5625
-  const d1 = 2.75
-  if (t < 1 / d1) return n1 * t * t
-  if (t < 2 / d1) return n1 * (t -= 1.5 / d1) * t + 0.75
-  if (t < 2.5 / d1) return n1 * (t -= 2.25 / d1) * t + 0.9375
-  return n1 * (t -= 2.625 / d1) * t + 0.984375
-}
 const TAU = Math.PI * 2
 
 function pick(pool: Uint16Array, r: number): number {
@@ -101,6 +93,89 @@ export function emitStatic(c: AnimCtx): void {
       out.push(x, y, gi[i], 1, 0, fg[o], fg[o + 1], fg[o + 2], fg[o + 3])
     }
   }
+}
+
+// Smooth value noise (0..1) for organic effects.
+function vnoise(x: number, y: number): number {
+  const xi = Math.floor(x)
+  const yi = Math.floor(y)
+  const xf = x - xi
+  const yf = y - yi
+  const u = xf * xf * (3 - 2 * xf)
+  const v = yf * yf * (3 - 2 * yf)
+  const a = hash2(xi, yi)
+  const b = hash2(xi + 1, yi)
+  const c = hash2(xi, yi + 1)
+  const d = hash2(xi + 1, yi + 1)
+  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v
+}
+
+function fbm(x: number, y: number): number {
+  return vnoise(x, y) * 0.62 + vnoise(x * 2.3 + 7.1, y * 2.3 + 3.7) * 0.38
+}
+
+interface Shards {
+  id: Int16Array
+  cx: Float32Array
+  cy: Float32Array
+  border: Uint8Array
+}
+
+const shardCache = new WeakMap<AsciiFrame, Shards>()
+
+/** Voronoi shards over the grid (cached per frame). */
+function shardsFor(f: AsciiFrame, aspect: number): Shards {
+  const hit = shardCache.get(f)
+  if (hit) return hit
+  const n = f.cols * f.rows
+  const N = Math.max(12, Math.min(48, Math.round(n / 260)))
+  const sx = new Float32Array(N)
+  const sy = new Float32Array(N)
+  for (let k = 0; k < N; k++) {
+    sx[k] = hash(k * 2 + 11) * f.cols
+    sy[k] = hash(k * 2 + 12) * f.rows
+  }
+  const id = new Int16Array(n)
+  const cx = new Float32Array(N)
+  const cy = new Float32Array(N)
+  const cnt = new Float32Array(N)
+  for (let y = 0, i = 0; y < f.rows; y++) {
+    for (let x = 0; x < f.cols; x++, i++) {
+      let best = 0
+      let bd = Infinity
+      for (let k = 0; k < N; k++) {
+        const dx = (x - sx[k]) * aspect
+        const dy = y - sy[k]
+        const d = dx * dx + dy * dy
+        if (d < bd) {
+          bd = d
+          best = k
+        }
+      }
+      id[i] = best
+      cx[best] += x
+      cy[best] += y
+      cnt[best]++
+    }
+  }
+  for (let k = 0; k < N; k++) {
+    if (cnt[k]) {
+      cx[k] /= cnt[k]
+      cy[k] /= cnt[k]
+    } else {
+      cx[k] = sx[k]
+      cy[k] = sy[k]
+    }
+  }
+  const border = new Uint8Array(n)
+  for (let y = 0, i = 0; y < f.rows; y++) {
+    for (let x = 0; x < f.cols; x++, i++) {
+      if ((x + 1 < f.cols && id[i + 1] !== id[i]) || (y + 1 < f.rows && id[i + f.cols] !== id[i])) border[i] = 1
+    }
+  }
+  const s = { id, cx, cy, border }
+  shardCache.set(f, s)
+  return s
 }
 
 const RAINBOW: RGB[] = Array.from({ length: 256 }, (_, i) => hslToRgb(i / 256, 0.9, 0.64))
@@ -286,56 +361,6 @@ export const ANIMATIONS: AnimDef[] = [
     },
   },
   {
-    id: 'typewriter',
-    name: 'Type',
-    hint: 'Typed out glyph by glyph with a cursor',
-    duration: 5,
-    run(c) {
-      emitBg(c)
-      const { f, out, gi, blank, p, hl } = c
-      const fg = f.fg
-      let total = 0
-      for (let i = 0; i < blank.length; i++) if (!blank[i]) total++
-      const revealed = Math.floor(clamp01(p / 0.72) * total)
-      const fade = p > 0.9 ? 1 - (p - 0.9) / 0.1 : 1
-      const fresh = Math.max(1, total * 0.015)
-      let k = 0
-      let cx = -1
-      let cy = -1
-      for (let y = 0, i = 0; y < f.rows; y++) {
-        for (let x = 0; x < f.cols; x++, i++) {
-          if (blank[i]) continue
-          if (k >= revealed) {
-            if (cx < 0) {
-              cx = x
-              cy = y
-            }
-            k++
-            continue
-          }
-          const o = i * 4
-          const age = (revealed - k) / fresh
-          const pop = age < 1 ? 1 - age : 0
-          out.push(
-            x,
-            y,
-            gi[i],
-            1 + pop * 0.5,
-            0,
-            mix(fg[o], hl[0], pop),
-            mix(fg[o + 1], hl[1], pop),
-            mix(fg[o + 2], hl[2], pop),
-            fg[o + 3] * fade,
-          )
-          k++
-        }
-      }
-      if (cx >= 0 && (c.time * 2.5) % 1 < 0.6) {
-        out.push(cx, cy, glyphs.index(FULL_BLOCK), 1, 0, hl[0], hl[1], hl[2], 255)
-      }
-    },
-  },
-  {
     id: 'assemble',
     name: 'Assemble',
     hint: 'Glyphs fly in to form the image, then burst apart',
@@ -456,49 +481,6 @@ export const ANIMATIONS: AnimDef[] = [
     },
   },
   {
-    id: 'vortex',
-    name: 'Vortex',
-    hint: 'The image twists into a spiral and back',
-    duration: 4,
-    run(c) {
-      emitBg(c)
-      const { f, out, gi, blank, p, hl, intensity, aspect } = c
-      const fg = f.fg
-      const cx = f.cols / 2
-      const cy = f.rows / 2
-      const maxR = Math.hypot(cx * aspect, cy) || 1
-      const s = Math.sin(Math.PI * p)
-      const twist = s * s * TAU * 1.2 * intensity
-      for (let y = 0, i = 0; y < f.rows; y++) {
-        for (let x = 0; x < f.cols; x++, i++) {
-          if (blank[i]) continue
-          const o = i * 4
-          const vx = (x + 0.5 - cx) * aspect
-          const vy = y + 0.5 - cy
-          const r = Math.hypot(vx, vy) / maxR
-          const fall = Math.pow(Math.max(0, 1 - r), 1.5)
-          const ang = twist * fall
-          const cs = Math.cos(ang)
-          const sn = Math.sin(ang)
-          const nx = (vx * cs - vy * sn) / aspect + cx - 0.5
-          const ny = vx * sn + vy * cs + cy - 0.5
-          const t = fall * s * 0.5 * intensity
-          out.push(
-            nx,
-            ny,
-            gi[i],
-            1 - 0.3 * s * s * fall,
-            ang,
-            mix(fg[o], hl[0], t),
-            mix(fg[o + 1], hl[1], t),
-            mix(fg[o + 2], hl[2], t),
-            fg[o + 3],
-          )
-        }
-      }
-    },
-  },
-  {
     id: 'pulse',
     name: 'Pulse',
     hint: 'Halftone breathing in a diagonal tide',
@@ -527,38 +509,6 @@ export const ANIMATIONS: AnimDef[] = [
             mix(fg[o + 2], hl[2], t),
             fg[o + 3] * (0.55 + 0.45 * s),
           )
-        }
-      }
-    },
-  },
-  {
-    id: 'fall',
-    name: 'Gravity',
-    hint: 'Glyphs drop in with a bounce, then fall away',
-    duration: 5,
-    run(c) {
-      const { f, out, gi, blank, p, intensity } = c
-      const fg = f.fg
-      let fadeBg = 1
-      if (p < 0.5) fadeBg = clamp01(p / 0.45)
-      else if (p > 0.75) fadeBg = 1 - clamp01((p - 0.75) / 0.2)
-      emitBg(c, fadeBg)
-      for (let y = 0, i = 0; y < f.rows; y++) {
-        for (let x = 0; x < f.cols; x++, i++) {
-          if (blank[i]) continue
-          const o = i * 4
-          const delay = hash(x + 101) * 0.2 + ((f.rows - y) / f.rows) * 0.2
-          let yy = y
-          let rot = 0
-          if (p < 0.5) {
-            const e = easeOutBounce(clamp01((p / 0.5 - delay) / 0.6))
-            yy = y - (1 - e) * (f.rows + 2 + hash(i) * f.rows * 0.5)
-          } else if (p > 0.75) {
-            const t = clamp01(((p - 0.75) / 0.25 - delay * 0.5) / 0.8)
-            yy = y + t * t * (f.rows + 6)
-            rot = (hash(i + 7) - 0.5) * t * 3 * intensity
-          }
-          out.push(x, yy, gi[i], 1, rot, fg[o], fg[o + 1], fg[o + 2], fg[o + 3])
         }
       }
     },
@@ -600,42 +550,331 @@ export const ANIMATIONS: AnimDef[] = [
       }
     },
   },
+  {
+    id: 'silk',
+    name: 'Silk',
+    hint: 'The image ripples like fabric in a breeze',
+    duration: 5,
+    run(c) {
+      emitBg(c)
+      const { f, out, gi, blank, p, intensity } = c
+      const fg = f.fg
+      const a = TAU * p
+      const amp = 1.3 * intensity
+      for (let y = 0, i = 0; y < f.rows; y++) {
+        for (let x = 0; x < f.cols; x++, i++) {
+          if (blank[i]) continue
+          const o = i * 4
+          const n1 = Math.sin(x * 0.07 + Math.sin(y * 0.11 + a) * 1.6 + a)
+          const n2 = Math.cos(y * 0.09 + Math.cos(x * 0.05 - a) * 1.6 - a)
+          const sheen = Math.max(0, n1 * n2) ** 2 * 0.4 * intensity
+          out.push(
+            x + n1 * amp,
+            y + n2 * amp * 0.55,
+            gi[i],
+            1 + 0.1 * n2 * intensity,
+            n1 * 0.12 * intensity,
+            mix(fg[o], 255, sheen),
+            mix(fg[o + 1], 255, sheen),
+            mix(fg[o + 2], 255, sheen),
+            fg[o + 3] * (0.84 + 0.16 * n2),
+          )
+        }
+      }
+    },
+  },
+  {
+    id: 'kaleido',
+    name: 'Kaleido',
+    hint: 'A turning kaleidoscope made from the image',
+    duration: 8,
+    run(c) {
+      emitBg(c)
+      const { f, out, gi, blank, p, intensity, aspect } = c
+      const fg = f.fg
+      const N = 6
+      const wedge = TAU / N
+      const cx = f.cols / 2
+      const cy = f.rows / 2
+      const rot = p * 2 * wedge
+      const zoom = 1 - 0.35 * intensity * (0.5 - 0.5 * Math.cos(TAU * p))
+      for (let y = 0; y < f.rows; y++) {
+        for (let x = 0; x < f.cols; x++) {
+          const vx = (x + 0.5 - cx) * aspect
+          const vy = y + 0.5 - cy
+          const r = Math.hypot(vx, vy) * zoom
+          let t = (((Math.atan2(vy, vx) + rot) % (2 * wedge)) + 2 * wedge) % (2 * wedge)
+          if (t > wedge) t = 2 * wedge - t
+          const ix = Math.round(cx + (r * Math.cos(t - wedge / 2)) / aspect - 0.5)
+          const iy = Math.round(cy + r * Math.sin(t - wedge / 2) - 0.5)
+          if (ix < 0 || iy < 0 || ix >= f.cols || iy >= f.rows) continue
+          const j = iy * f.cols + ix
+          if (blank[j]) continue
+          const o = j * 4
+          out.push(x, y, gi[j], 1, 0, fg[o], fg[o + 1], fg[o + 2], fg[o + 3])
+        }
+      }
+    },
+  },
+  {
+    id: 'burn',
+    name: 'Burn',
+    hint: 'Burns away along glowing embers, then grows back',
+    duration: 6,
+    run(c) {
+      emitBg(c)
+      const { f, out, gi, blank, p, pool, hl, intensity } = c
+      const fg = f.fg
+      const ease = (t: number) => t * t * (3 - 2 * t)
+      const th = p < 0.45 ? ease(p / 0.45) : p < 0.55 ? 1 : 1 - ease((p - 0.55) / 0.45)
+      const T = -0.15 + th * 1.3
+      const e = 0.07 + 0.05 * intensity
+      const tick = Math.floor(c.time * 14)
+      for (let y = 0, i = 0; y < f.rows; y++) {
+        for (let x = 0; x < f.cols; x++, i++) {
+          if (blank[i]) continue
+          const o = i * 4
+          const d = fbm(x * 0.08, y * 0.13) - T
+          if (d < -e) continue
+          if (d < e) {
+            const k = (d + e) / (2 * e)
+            const hot = 1 - k
+            const ember = k < 0.45
+            const r = ember ? mix(255, hl[0], k / 0.45) : mix(hl[0], fg[o], (k - 0.45) / 0.55)
+            const g = ember ? mix(232, hl[1], k / 0.45) : mix(hl[1], fg[o + 1], (k - 0.45) / 0.55)
+            const b = ember ? mix(160, hl[2], k / 0.45) : mix(hl[2], fg[o + 2], (k - 0.45) / 0.55)
+            out.push(
+              x,
+              y - hot * 0.7 * intensity,
+              ember ? pick(pool, hash2(i, tick)) : gi[i],
+              1 + hot * 0.45 * intensity,
+              0,
+              r,
+              g,
+              b,
+              255,
+            )
+          } else {
+            out.push(x, y, gi[i], 1, 0, fg[o], fg[o + 1], fg[o + 2], fg[o + 3])
+          }
+        }
+      }
+    },
+  },
+  {
+    id: 'shatter',
+    name: 'Shatter',
+    hint: 'Cracks into shards that drift apart and fit back together',
+    duration: 5,
+    run(c) {
+      emitBg(c)
+      const { f, out, gi, blank, p, hl, intensity, aspect } = c
+      const fg = f.fg
+      const sh = shardsFor(f, aspect)
+      const ease = (t: number) => t * t * (3 - 2 * t)
+      let e = 0
+      if (p < 0.12) e = 0
+      else if (p < 0.5) e = easeOutExpo((p - 0.12) / 0.38)
+      else if (p < 0.72) e = 1 + ((p - 0.5) / 0.22) * 0.15
+      else e = 1.15 * (1 - ease((p - 0.72) / 0.28))
+      const flash = p < 0.12 ? Math.sin((Math.PI * p) / 0.12) : 0
+      const cx = f.cols / 2
+      const cy = f.rows / 2
+      for (let y = 0, i = 0; y < f.rows; y++) {
+        for (let x = 0; x < f.cols; x++, i++) {
+          if (blank[i]) continue
+          const o = i * 4
+          const k = sh.id[i]
+          const scx = sh.cx[k]
+          const scy = sh.cy[k]
+          let dx = (scx - cx) * aspect
+          let dy = scy - cy
+          const dl = Math.hypot(dx, dy) || 1
+          dx /= dl
+          dy /= dl
+          const dist = (5 + hash(k * 9 + 4) * 9) * intensity * e
+          const spin = (hash(k * 9 + 5) - 0.5) * 1.3 * intensity * e
+          const rx = (x - scx) * aspect
+          const ry = y - scy
+          const cs = Math.cos(spin)
+          const sn = Math.sin(spin)
+          const nx = scx + (rx * cs - ry * sn) / aspect + (dx * dist) / aspect
+          const ny = scy + rx * sn + ry * cs + dy * dist
+          const edge = sh.border[i] ? flash : 0
+          out.push(
+            nx,
+            ny,
+            gi[i],
+            1,
+            spin,
+            mix(mix(fg[o], hl[0], edge), 255, edge * 0.6),
+            mix(mix(fg[o + 1], hl[1], edge), 255, edge * 0.6),
+            mix(mix(fg[o + 2], hl[2], edge), 255, edge * 0.6),
+            fg[o + 3],
+          )
+        }
+      }
+    },
+  },
+  {
+    id: 'tilt',
+    name: 'Tilt',
+    hint: 'A slow 3D wobble where dense glyphs float forward',
+    duration: 6,
+    run(c) {
+      emitBg(c)
+      const { f, out, gi, blank, p, intensity, aspect } = c
+      const fg = f.fg
+      const ink = f.ink
+      const ax = Math.sin(TAU * p) * 0.45 * intensity
+      const ay = Math.cos(TAU * p) * 0.55 * intensity
+      const cx = f.cols / 2
+      const cy = f.rows / 2
+      const F = Math.max(f.cols * aspect, f.rows) * 1.5
+      const depth = Math.max(f.cols * aspect, f.rows) * 0.12 * intensity
+      const cX = Math.cos(ax)
+      const sX = Math.sin(ax)
+      const cY = Math.cos(ay)
+      const sY = Math.sin(ay)
+      for (let y = 0, i = 0; y < f.rows; y++) {
+        for (let x = 0; x < f.cols; x++, i++) {
+          if (blank[i]) continue
+          const o = i * 4
+          const vx = (x + 0.5 - cx) * aspect
+          const vy = y + 0.5 - cy
+          const vz = -ink[i] * depth
+          const x1 = vx * cY + vz * sY
+          const z1 = -vx * sY + vz * cY
+          const y2 = vy * cX - z1 * sX
+          const z2 = vy * sX + z1 * cX
+          const k = F / (F + z2)
+          const lit = clamp01(-z2 / (depth + 1)) * 0.35
+          out.push(
+            (x1 * k) / aspect + cx - 0.5,
+            y2 * k + cy - 0.5,
+            gi[i],
+            k,
+            0,
+            mix(fg[o], 255, lit),
+            mix(fg[o + 1], 255, lit),
+            mix(fg[o + 2], 255, lit),
+            fg[o + 3],
+          )
+        }
+      }
+    },
+  },
+  {
+    id: 'glitter',
+    name: 'Glitter',
+    hint: 'Sequins twinkle across the art',
+    duration: 4,
+    run(c) {
+      emitBg(c)
+      const { f, out, gi, blank, p, hl, intensity } = c
+      const fg = f.fg
+      const star = glyphs.index(0x2726)
+      const plus = glyphs.index(43)
+      const share = 0.12 + 0.4 * intensity
+      for (let y = 0, i = 0; y < f.rows; y++) {
+        for (let x = 0; x < f.cols; x++, i++) {
+          if (blank[i]) continue
+          const o = i * 4
+          let s = 0
+          if (hash(i * 5 + 2) < share) {
+            const k = 1 + Math.floor(hash(i) * 3)
+            s = Math.max(0, Math.sin(TAU * (p * k + hash(i * 3 + 1)))) ** 14
+          }
+          if (s > 0.05) {
+            const w = Math.min(1, s * 1.2)
+            out.push(
+              x,
+              y,
+              s > 0.55 ? star : plus,
+              1 + s * 1.1 * intensity,
+              s * 0.5,
+              mix(mix(fg[o], hl[0], 0.3), 255, w),
+              mix(mix(fg[o + 1], hl[1], 0.3), 255, w),
+              mix(mix(fg[o + 2], hl[2], 0.3), 255, w),
+              255,
+            )
+          } else {
+            const shimmer = 0.88 + 0.12 * Math.sin(TAU * (p * 2 + x * 0.03 - y * 0.02))
+            out.push(x, y, gi[i], 1, 0, fg[o], fg[o + 1], fg[o + 2], fg[o + 3] * shimmer)
+          }
+        }
+      }
+    },
+  },
+  {
+    id: 'warp',
+    name: 'Warp',
+    hint: 'Jumps to light speed, then snaps back into focus',
+    duration: 4,
+    run(c) {
+      const { f, out, gi, blank, p, hl, intensity, aspect } = c
+      const fg = f.fg
+      const w = Math.sin(Math.PI * p) ** 4
+      emitBg(c, 1 - w * 0.7)
+      const cx = f.cols / 2
+      const cy = f.rows / 2
+      for (let y = 0, i = 0; y < f.rows; y++) {
+        for (let x = 0; x < f.cols; x++, i++) {
+          if (blank[i]) continue
+          const o = i * 4
+          const vx = (x + 0.5 - cx) * aspect
+          const vy = y + 0.5 - cy
+          const d = 0.3 + hash(i) * 0.7
+          const k = 1 + w * d * 5 * intensity
+          if (w > 0.05) {
+            for (const [t, a] of [
+              [0.35, 0.22],
+              [0.65, 0.35],
+            ]) {
+              const kk = 1 + (k - 1) * t
+              out.push((vx * kk) / aspect + cx - 0.5, vy * kk + cy - 0.5, gi[i], 1, 0, hl[0], hl[1], hl[2], fg[o + 3] * a * w)
+            }
+          }
+          out.push((vx * k) / aspect + cx - 0.5, vy * k + cy - 0.5, gi[i], 1 + w * d * 0.9, 0, fg[o], fg[o + 1], fg[o + 2], fg[o + 3] * (1 - w * 0.25))
+        }
+      }
+    },
+  },
+  {
+    id: 'runway',
+    name: 'Runway',
+    hint: 'A spotlight sweeps the art like a catwalk',
+    duration: 5,
+    run(c) {
+      emitBg(c)
+      const { f, out, gi, blank, p, hl, intensity, aspect } = c
+      const fg = f.fg
+      const sx = f.cols * (0.5 + 0.42 * Math.sin(TAU * p))
+      const sy = f.rows * (0.5 + 0.16 * Math.sin(2 * TAU * p + 1))
+      const R = Math.max(f.cols * aspect, f.rows) * 0.3
+      const dim = 1 - 0.8 * intensity
+      for (let y = 0, i = 0; y < f.rows; y++) {
+        for (let x = 0; x < f.cols; x++, i++) {
+          if (blank[i]) continue
+          const o = i * 4
+          const d = Math.hypot((x + 0.5 - sx) * aspect, y + 0.5 - sy)
+          const t = clamp01(1 - d / R)
+          const s = t * t * (3 - 2 * t)
+          const ring = Math.exp(-(((d - R * 0.88) / (R * 0.07)) ** 2)) * 0.5 * intensity
+          const r = mix(mix(fg[o], 255, s * s * 0.4), hl[0], ring)
+          const g = mix(mix(fg[o + 1], 255, s * s * 0.4), hl[1], ring)
+          const b = mix(mix(fg[o + 2], 255, s * s * 0.4), hl[2], ring)
+          out.push(x, y, gi[i], 1 + s * 0.15, 0, r, g, b, fg[o + 3] * (dim + (1 - dim) * Math.max(s, ring)))
+        }
+      }
+    },
+  },
 ]
 
 export function getAnimation(id: string): AnimDef {
   return ANIMATIONS.find((a) => a.id === id) ?? ANIMATIONS[0]
 }
 
-/** Push glyphs away from a pointer (cell coordinates). Mutates the list in place. */
-export function applyMagnet(
-  out: RenderList,
-  px: number,
-  py: number,
-  aspect: number,
-  strength: number,
-  hl: RGB,
-  radius = 9,
-): void {
-  const g = out.geom
-  const col = out.color
-  for (let i = out.bgCount; i < out.count; i++) {
-    const o = i * GEOM_STRIDE
-    const dx = (g[o] + 0.5 - px) * aspect
-    const dy = g[o + 1] + 0.5 - py
-    const d = Math.hypot(dx, dy)
-    if (d >= radius || d < 1e-4) continue
-    const f = 1 - d / radius
-    const push = f * f * radius * 0.55 * strength
-    g[o] += ((dx / d) * push) / aspect
-    g[o + 1] += (dy / d) * push
-    g[o + 2] *= 1 + f * 0.6 * strength
-    const c = i * 4
-    const t = f * 0.7 * strength
-    col[c] = mix(col[c], hl[0], t)
-    col[c + 1] = mix(col[c + 1], hl[1], t)
-    col[c + 2] = mix(col[c + 2], hl[2], t)
-  }
-}
 
 /** Precompute per-frame data shared by all animations. */
 export function prepareFrame(f: AsciiFrame, rampCodes: ArrayLike<number>, poolCodes: ArrayLike<number>) {

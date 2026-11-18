@@ -11,7 +11,7 @@ import { I } from '../icons'
 export function StylePanel() {
   const style = useApp((s) => s.style)
   const set = useApp((s) => s.setStyle)
-  const hasSource = useApp((s) => !!s.source)
+  const hasSource = useApp((s) => s.layers.length > 0)
   const [k, setK] = useState(5)
 
   const applyLook = (id: string) => {
@@ -27,8 +27,8 @@ export function StylePanel() {
   }
 
   const extract = (target: 'palette' | 'gradient') => {
-    if (!studio.source) return
-    const pal = extractPalette(thumbnailPixels(studio.source), k).map((c) => rgbToHex(c[0], c[1], c[2]))
+    const c = studio.composite
+    const pal = extractPalette(thumbnailPixels({ el: c, width: c.width, height: c.height }), k).map((c) => rgbToHex(c[0], c[1], c[2]))
     if (target === 'palette') set({ customPalette: pal, paletteId: 'custom', colorMode: 'palette' })
     else {
       const stops = pal.length > 3 ? [pal[0], pal[Math.floor(pal.length / 2)], pal[pal.length - 1]] : pal
@@ -40,7 +40,7 @@ export function StylePanel() {
 
   return (
     <>
-      <Section n="01" title="Looks">
+      <Section title="Looks">
         <div className="look-grid">
           {LOOKS.map((l) => (
             <button key={l.id} type="button" className="look" onClick={() => applyLook(l.id)}>
@@ -53,7 +53,7 @@ export function StylePanel() {
         </div>
       </Section>
 
-      <Section n="02" title="Color">
+      <Section title="Color">
         <Segmented
           value={style.colorMode}
           onChange={(colorMode) => set({ colorMode })}
@@ -175,7 +175,7 @@ export function StylePanel() {
         />
       </Section>
 
-      <Section n="03" title="Typography">
+      <Section title="Typography">
         <Slider label="Size" value={style.fontSize} min={5} max={32} step={0.5} onChange={(fontSize) => set({ fontSize })} format={(v) => `${v}px`} />
         <Slider label="Line height" value={style.lineHeight} min={0.6} max={1.8} onChange={(lineHeight) => set({ lineHeight })} format={(v) => v.toFixed(2)} />
         <Slider label="Tracking" value={style.letterSpacing} min={-2} max={8} step={0.1} onChange={(letterSpacing) => set({ letterSpacing })} format={(v) => `${v.toFixed(1)}px`} />
@@ -192,7 +192,7 @@ export function StylePanel() {
         />
       </Section>
 
-      <Section n="04" title="Print">
+      <Section title="Print">
         <Toggle
           label="CMYK soft proof"
           hint="Simulates process inks on paper so you can spot colors that will print dull"

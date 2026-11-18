@@ -47,6 +47,7 @@ export interface GradientPreset {
 }
 
 export const GRADIENTS: GradientPreset[] = [
+  { id: 'passion', name: 'Passion', stops: ['#3a0614', '#d6204f', '#ffc2cf'] },
   { id: 'noir', name: 'Noir', stops: ['#151515', '#f4f1ea'] },
   { id: 'klein', name: 'Klein', stops: ['#001b8a', '#2c4bff', '#e9edff'] },
   { id: 'riso', name: 'Riso', stops: ['#ff48b0', '#ffe800'] },
@@ -67,6 +68,20 @@ export interface LookPreset {
 }
 
 export const LOOKS: LookPreset[] = [
+  {
+    id: 'passion',
+    name: 'Passion',
+    swatch: ['#16040a', '#ff4d7a'],
+    shape: { mode: 'density', charsetId: 'dots', dither: 'none', detail: false },
+    style: {
+      colorMode: 'gradient',
+      background: '#16040a',
+      gradient: ['#3a0614', '#d6204f', '#ffc2cf'],
+      gradientAxis: 'tone',
+      cellTint: 0.1,
+    },
+    motion: { animation: 'glitter', highlight: '#ffd1dc' },
+  },
   {
     id: 'editorial',
     name: 'Editorial',
@@ -159,4 +174,4 @@ export const LOOKS: LookPreset[] = [
 ]
 
 /** Characters offered in the editor's brush palette. */
-export const BRUSH_CHARS = '█▓▒░▀▄▌▐■□▪▫●◦•·:;=+*#%@&$/\\|-_~^<>()[]{}○◎◆◇×÷±≈∞'
+export const BRUSH_CHARS = '█▓▒░▀▄▌▐■□▪▫●◦•·:;=+*#%@&$/\\|-_~^<>()[]{}◎◆◇×÷±≈∞'

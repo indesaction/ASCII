@@ -11,7 +11,7 @@ export function ShapePanel() {
   const usesCharset = shape.mode === 'density' || shape.mode === 'contour'
   return (
     <>
-      <Section n="01" title="Mode">
+      <Section title="Mode">
         <Segmented
           value={shape.mode}
           onChange={(mode) => set({ mode })}
@@ -42,7 +42,7 @@ export function ShapePanel() {
       </Section>
 
       {usesCharset && (
-        <Section n="02" title="Characters">
+        <Section title="Characters">
           <div className="chips">
             {CHARSETS.map((c) => (
               <button
@@ -84,7 +84,7 @@ export function ShapePanel() {
       )}
 
       {shape.mode === 'phrase' && (
-        <Section n="02" title="Phrase">
+        <Section title="Phrase">
           <input
             className="input"
             value={shape.phrase}
@@ -114,7 +114,7 @@ export function ShapePanel() {
       )}
 
       {(shape.mode === 'density' || shape.mode === 'braille') && !(shape.mode === 'density' && shape.detail) && (
-        <Section n="03" title="Dithering">
+        <Section title="Dithering">
           <Segmented
             size="sm"
             value={shape.dither}
@@ -140,7 +140,7 @@ export function ShapePanel() {
       )}
 
       {shape.mode === 'contour' && (
-        <Section n="03" title="Edges">
+        <Section title="Edges">
           <Slider
             label="Sensitivity"
             value={1 - shape.edgeThreshold}
@@ -154,7 +154,6 @@ export function ShapePanel() {
       )}
 
       <Section
-        n="04"
         title="Tone"
         aside={
           <button
@@ -177,6 +176,12 @@ export function ShapePanel() {
         <Slider label="Contrast" value={shape.contrast} min={-1} max={1} onChange={(contrast) => set({ contrast })} format={pct} />
         <Slider label="Gamma" value={shape.gamma} min={0.3} max={3} onChange={(gamma) => set({ gamma })} format={(v) => v.toFixed(2)} />
         <Toggle label="Invert" checked={shape.invert} onChange={(invert) => set({ invert })} />
+        <Toggle
+          label="Ink from transparency"
+          hint="Shapes follow transparent edges only, ignoring brightness — ideal for logos and cut-outs"
+          checked={shape.alphaInk}
+          onChange={(alphaInk) => set({ alphaInk })}
+        />
       </Section>
     </>
   )

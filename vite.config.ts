@@ -23,7 +23,11 @@ function precache(): Plugin {
         }
       }
       walk(outDir)
-      const list = files.filter((f) => f !== 'sw.js' && !f.endsWith('.txt') && !f.endsWith('.map')).sort()
+      // Large on-demand decoders (PDF, PSD…) are cached the first time they're used instead.
+      const list = files
+        .filter((f) => f !== 'sw.js' && !f.endsWith('.txt') && !f.endsWith('.map'))
+        .filter((f) => f.startsWith('assets/index-') || statSync(join(outDir, f)).size < 300_000)
+        .sort()
       const hash = createHash('sha256')
       for (const f of list) hash.update(f)
       const sw = join(outDir, 'sw.js')
