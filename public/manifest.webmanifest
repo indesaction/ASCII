@@ -1,0 +1,23 @@
+{
+  "name": "ASCII Atelier",
+  "short_name": "Atelier",
+  "description": "Images, vectors, video and camera set in type — animate, edit and export ASCII art as PNG, SVG, CMYK PDF, GIF, video or a web embed.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f3f0ea",
+  "theme_color": "#f3f0ea",
+  "categories": ["graphics", "design", "photo"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ],
+  "share_target": {
+    "action": "./",
+    "method": "GET",
+    "params": { "title": "title", "text": "text" }
+  }
+}

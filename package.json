@@ -1,0 +1,34 @@
+{
+  "name": "ascii-atelier",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build:player": "vite build -c vite.player.config.ts --logLevel warn",
+    "dev": "npm run build:player && vite",
+    "build": "npm run build:player && tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "npm run build:player && tsc -b",
+    "lint": "oxlint",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@fontsource/instrument-serif": "^5.3.0",
+    "gifenc": "^1.0.3",
+    "opentype.js": "^2.0.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "zustand": "^5.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "oxlint": "^1.90.0",
+    "typescript": "~7.0.2",
+    "vite": "^8.3.6",
+    "vitest": "^5.1.0"
+  },
+  "description": "ASCII Atelier — image, vector, video and camera to ASCII art, with animation, real-time editing and CMYK vector export."
+}
